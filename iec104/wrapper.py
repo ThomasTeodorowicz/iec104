@@ -1,6 +1,5 @@
 import struct
 import unittest
-# This class provides a wrapper with functions to create iec 104 messages and unpack them. Look into the IEC 104 specification to learn the details.
 
 TESTFR_CON = 131
 TESTFR_ACT = 67
@@ -14,6 +13,13 @@ STARTDT_ACT = 7
 NO_FUNC = 3
 
 class IEC104Wrapper():
+    """
+    This class provides a wrapper with functions to create iec 104 messages and unpack them. Look into the IEC 104 specification to learn the details.
+    """
+
+    def __init__(self):
+        # Internal counter for the Information object address
+        self.information_object_address = 0
 
     def create_apdu_header(self, apdu):
         """
@@ -29,24 +35,24 @@ class IEC104Wrapper():
             return "ERROR: APDU too long."
         return start + struct.pack("B", len(apdu))
 
-    def create_apdu(self, frame, asdu_type, cause_of_transmission, originator_address, common_address, information_object_address, message, ssn = 0, rsn = 0):
+    def create_apdu(self, frame, asdu_type, sequence, cause_of_transmission, common_address, message, ssn = 0, rsn = 0, originator_address = 0):
         """
         Creates a IEC104 APDU without header.
         :param frame: Frame format to be used.
         :param asdu_type: Type of the message as string.
-        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit(defaults to 0) and Testbit(defaults to 0).
-        :param originator_address: Originator address as integer.
+        :param sequence: SQ Bit as defined in IEC 104.
+        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit and Testbit.
         :param common_address: Common address of ASDUs as integer.
-        :param information_object_address: Information object address as integer.
-        :param message: Message to be wrapped.
+        :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :param ssn: Send sequence number. This is also used to store relevant information for the U-Frame(has to contain the function name and type: e.g. "test-con").
         :param rsn: Receive sequence number.
+        :param originator_address: Originator address as integer.
         :return: Struct containing an IEC 104 APDU without header as bytestring. ERROR if failed.
         """
         apci = self.wrap_frame(frame, ssn, rsn)
         if type(apci) is str:
             return apci
-        asdu = self.wrap_asdu(asdu_type, cause_of_transmission, originator_address, common_address, information_object_address, message)
+        asdu = self.wrap_asdu(asdu_type, sequence, cause_of_transmission, common_address, message, originator_address)
         if type(asdu) is str:
             return asdu
         return apci + asdu
@@ -119,33 +125,34 @@ class IEC104Wrapper():
             print("Warning: U-Frame was made without an active function.")
         return struct.pack('<2BH', byte, 0x00, 0x00)
     
-    def wrap_asdu(self, asdu_type, cause_of_transmission, originator_address, common_address, information_object_address, message):
+    def wrap_asdu(self, asdu_type, sequence, cause_of_transmission, common_address, message, originator_address = 0):
         """
         Adds a IEC 104 ASDU to a struct.
         :param asdu_type: Type of the message as string.
-        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit(defaults to 0) and Testbit(defaults to 0).
-        :param originator_address: Originator address as integer.
+        :param sequence: SQ Bit as defined in IEC 104.
+        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit and Testbit.
         :param common_address: Common address of ASDUs as integer.
-        :param information_object_address: Information object address as integer.
-        :param message: Message to be wrapped.
+        :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
+        :param originator_address: Originator address as integer.
         :return: Struct containing an IEC 104 ASDU as bytestring. ERROR if failed.
         """
         type_id = self.wrap_asdu_type(asdu_type)
         if type(type_id) is str:
             return type_id
-        vsq = self.wrap_variable_structure_qualifier(type_id)
+        vsq = self.wrap_variable_structure_qualifier(type_id, sequence, message)
         if type(vsq) is str:
-            return type_id
+            return vsq
         cot = self.wrap_cause_of_transmission(cause_of_transmission, originator_address)
         if type(cot) is str:
             return cot
         ca = self.wrap_common_address(common_address)
         if type(ca) is str:
             return ca
-        ioa = self.wrap_information_object_address(information_object_address)
+        # io = self.wrap_information_object(vsq, message)
+        ioa = self.wrap_information_object_address()
         if type(ioa) is str:
             return ioa
-        return struct.pack('<B', type_id) + vsq + cot + ca + ioa
+        return struct.pack('<2B', type_id, vsq) + cot + ca + ioa
 
     def wrap_asdu_type(self, asdu_type):
         """
@@ -153,89 +160,97 @@ class IEC104Wrapper():
         :param asdu_type: Type of the message as string.
         :return: Type identification as integer. ERROR if failed.
         """
-        type_id = "ERROR: The ASDU type was not recognized."
         if asdu_type == 'M_BO_NA_1':
             type_id = 7
-        if asdu_type == 'M_ME_NC_1':
+        elif asdu_type == 'M_ME_NC_1':
             type_id = 13
-        if asdu_type == 'C_SC_NA_1':
+        elif asdu_type == 'C_SC_NA_1':
             type_id = 45
-        if asdu_type == 'C_IC_NA_1':
+        elif asdu_type == 'C_IC_NA_1':
             type_id = 100
-        if asdu_type == 'C_RD_NA_1':
+        elif asdu_type == 'C_RD_NA_1':
             type_id = 102
+        else:
+            return "ERROR: The ASDU type was not recognized."
         return type_id
 
-    def wrap_variable_structure_qualifier(self, type_id):
+    def wrap_variable_structure_qualifier(self, type_id, sequence, message):
         """
-        Adds a IEC 104 variable structure qualifier to a struct based on the type identification.
+        Determines the IEC 104 variable structure qualifier.
         :param type_id: Type of the message as integer.
+        :param sequence: SQ Bit as defined in IEC 104.
+        :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :return: Struct containing an IEC 104 variable structure qualifier as bytestring. ERROR if failed.
         """
-        vsq = "ERROR: The type identification was not recognized."
+        if not type(type_id) is int:
+             return "ERROR: The type identification has to be an integer."
+        if not sequence in [0,1]:
+            return "ERROR: Sequence has to be 0 or 1."
+        if (not type(message) is list) or (len(message) > 127):
+             return "ERROR: The message has to be a list containing less than 128 objects/elements."
         if type_id in [7, 13]:
-            # TODO In this case this should actually be variable.
+            vsq = len(message)
+            if sequence == 1:
+                vsq += 128
+        elif type_id in [45, 100, 102]:
             vsq = 1
-        if type_id in [45, 100, 102]:
-            vsq = 1
-        if type(vsq) is str:
-             return vsq
-        return struct.pack('<B', vsq)
+        else:
+            return "ERROR: The type identification was not recognized."
+        return vsq
 
-    def wrap_cause_of_transmission(self, cause_of_transmission, originator_address):
+    def wrap_cause_of_transmission(self, cause_of_transmission, originator_address = 0):
         """
         Adds a IEC 104 cause of transmission and originator address to a struct based on the type identification.
-        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit(defaults to 0) and Testbit(defaults to 0).
+        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit and Testbit.
         :param originator_address: Originator address as integer.
         :return: Struct containing an IEC 104 cause of transmission and originator address as bytestring. ERROR if failed.
         """
-        cause = "ERROR: No cause of transmission was found."
-        pn = 0
-        test = 0
+        if not type(cause_of_transmission) is tuple:
+            return "ERROR: Cause of transmission also needs a P/N Bit and Testbit."
         if not type(cause_of_transmission[0]) is str:
             return "ERROR: Cause of transmission has to be a string."
-        if ("periodic" in cause_of_transmission[0]) or ("cyclic" in cause_of_transmission[0]):
-            cause = 1
-        if "spontaneous" in cause_of_transmission[0]:
-            cause = 3
-        if ("request" in cause_of_transmission[0]) or ("requested" in cause_of_transmission[0]):
-            cause = 5
-        if "activation" in cause_of_transmission[0]:
-            cause = 6
-        if "activation confirmation" in cause_of_transmission[0]:
-            cause = 7
-        if ("return information" in cause_of_transmission[0]) and ("remote command" in cause_of_transmission[0]):
-            cause = 11
-        if type(cause) is str:
-            return cause
-        if cause_of_transmission[1] == 1:
-            pn = 64
-        if cause_of_transmission[2] == 1:
-            test = 128
+        if not cause_of_transmission[1] in [0,1]:
+            return "ERROR: P/N Bit has to be 0 or 1."
+        if not cause_of_transmission[2] in [0,1]:
+            return "ERROR: Testbit has to be 0 or 1."
         if (not type(originator_address) is int) or (originator_address < 0) or (originator_address > 255):
             return "ERROR: Originator address has to be an integer between 0 and 255."
+        if ("periodic" in cause_of_transmission[0]) or ("cyclic" in cause_of_transmission[0]):
+            cause = 1
+        elif "spontaneous" in cause_of_transmission[0]:
+            cause = 3
+        elif ("request" in cause_of_transmission[0]) or ("requested" in cause_of_transmission[0]):
+            cause = 5
+        elif "activation confirmation" in cause_of_transmission[0]:
+            cause = 7
+        elif "activation" in cause_of_transmission[0]:
+            cause = 6
+        elif ("return information" in cause_of_transmission[0]) and ("remote command" in cause_of_transmission[0]):
+            cause = 11
+        else:
+            return "ERROR: No cause of transmission was found."
+        pn = 64 if cause_of_transmission[1] == 1 else 0
+        test = 128 if cause_of_transmission[2] == 1 else 0
         return struct.pack('<2B', cause + pn + test, originator_address)
 
     def wrap_common_address(self, common_address):
         """
         Adds a IEC 104 common address to a struct.
         :param common_address: Common address of ASDUs as integer.
-        :param message: Message to be wrapped.
         :return: Struct containing an IEC 104 common address as bytestring. ERROR if failed.
         """
         if (not type(common_address) is int) or (common_address < 1) or (common_address > 65535):
             return "ERROR: Common address has to be an integer between 1 and 65535."
         return struct.pack('<2B', common_address & 0xFF, (common_address >> 8) & 0xFF)
 
-    def wrap_information_object_address(self, information_object_address):
+    def wrap_information_object_address(self):
         """
-        Adds a IEC 104 information object address to a struct.
-        :param information_object_address: Information object address as integer.
+        Adds an IEC 104 information object address to a struct.
         :return: Struct containing an IEC 104 information object address as bytestring. ERROR if failed.
         """
-        if (not type(information_object_address) is int) or (information_object_address < 0) or (information_object_address > 16777215):
+        if (not type(self.information_object_address) is int) or (self.information_object_address < 0) or (self.information_object_address > 16777215):
             return "ERROR: Information object address has to be an integer between 1 and 16777215."
-        return struct.pack('<3B', information_object_address & 0xFF, (information_object_address >> 8) & 0xFF, (information_object_address >> 16) & 0xFF)
+        return struct.pack('<3B', self.information_object_address & 0xFF, (self.information_object_address >> 8) & 0xFF, (self.information_object_address >> 16) & 0xFF)
 
 
     def unwrap_message(self):
@@ -283,14 +298,27 @@ class TestWrapper(unittest.TestCase):
 
     def test_variable_structure_qualifier(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x01', wrapper.wrap_variable_structure_qualifier(7))
-        self.assertEqual(b'\x01', wrapper.wrap_variable_structure_qualifier(13))
-        self.assertEqual(b'\x01', wrapper.wrap_variable_structure_qualifier(45))
-        self.assertEqual(b'\x01', wrapper.wrap_variable_structure_qualifier(100))
-        self.assertEqual(b'\x01', wrapper.wrap_variable_structure_qualifier(102))
-        self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier(-2))
-        self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier(3.5))
-        self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier("test"))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(7, 0, ["test"]))
+        self.assertEqual(2, wrapper.wrap_variable_structure_qualifier(7, 0, ["test", "test"]))
+        self.assertEqual(129, wrapper.wrap_variable_structure_qualifier(7, 1, ["test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(13, 0, ["test"]))
+        self.assertEqual(2, wrapper.wrap_variable_structure_qualifier(13, 0, ["test", "test"]))
+        self.assertEqual(129, wrapper.wrap_variable_structure_qualifier(13, 1, ["test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 0, ["test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 0, ["test", "test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 1, ["test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(100, 0, ["test", "test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(100, 1, ["test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 0, ["test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 0, ["test", "test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 1, ["test"]))
+        self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier(-2, 0, ["test"]))
+        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier(3.5, 0, ["test"]))
+        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier("test", 0, ["test"]))
+        self.assertEqual("ERROR: Sequence has to be 0 or 1.", wrapper.wrap_variable_structure_qualifier(7, 20, ["test"]))
+        self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, "test"))
+        self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, list("Lorem \
+         ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua.")))
 
     def test_asdu_type(self):
         wrapper = IEC104Wrapper()
@@ -315,22 +343,23 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x0b\x00', wrapper.wrap_cause_of_transmission(("return information due to remote command", 0, 0), 0))
         self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_cause_of_transmission(("test", 0, 0), 0))
         self.assertEqual("ERROR: Cause of transmission has to be a string.", wrapper.wrap_cause_of_transmission((0, 0, 0), 0))
+        self.assertEqual("ERROR: Cause of transmission also needs a P/N Bit and Testbit.", wrapper.wrap_cause_of_transmission("test", 0))
 
     def test_p_n(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 0))
-        self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 54, 0), 0))
-        self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 3.4, 0), 0))
-        self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", "test", 0), 0))
         self.assertEqual(b'\x41\x00', wrapper.wrap_cause_of_transmission(("periodic", 1, 0), 0))
+        self.assertEqual("ERROR: P/N Bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 54, 0), 0))
+        self.assertEqual("ERROR: P/N Bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 3.4, 0), 0))
+        self.assertEqual("ERROR: P/N Bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", "test", 0), 0))
 
     def test_testbit(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 0))
-        self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 54), 0))
-        self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 3.4), 0))
-        self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, "test"), 0))
         self.assertEqual(b'\x81\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 1), 0))
+        self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, 54), 0))
+        self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, 3.4), 0))
+        self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, "test"), 0))
 
     def test_original_address(self):
         wrapper = IEC104Wrapper()
@@ -354,27 +383,30 @@ class TestWrapper(unittest.TestCase):
 
     def test_information_object_address(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x00\x00\x00', wrapper.wrap_information_object_address(0))
-        self.assertEqual(b'\x8b\x13\x00', wrapper.wrap_information_object_address(5003))
-        self.assertEqual(b'\xFF\xFF\xFF', wrapper.wrap_information_object_address(16777215))
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address(-1))
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address(44444444443))
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address(3.4))
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address("test"))
+        self.assertEqual(b'\x00\x00\x00', wrapper.wrap_information_object_address())
+        wrapper.information_object_address = -1
+        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
+        wrapper.information_object_address = 44444444443
+        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
+        wrapper.information_object_address = 3.4
+        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
+        wrapper.information_object_address = "test"
+        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
 
     def test_asdu(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.wrap_asdu("M_BO_NA_1", ("periodic", 0, 0), 0, 1, 0, "test"))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu(1, ("periodic", 0, 0), 0, 1, 0, "test"))
-        self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_asdu("M_BO_NA_1", ("test", 0, 0), 0, 1, 0, "test"))
-        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", ("periodic", 0, 0), 0, -1, 0, "test"))
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_asdu("M_BO_NA_1", ("periodic", 0, 0), 0, 1, -1, "test"))
+        self.assertEqual(b'\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
+        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu(1, 0, ("periodic", 0, 0), 1, ["test"], 0))
+        self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("test", 0, 0), 1, ["test"], 0))
+        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), -1, ["test"], 0))
+        wrapper.information_object_address = -1
+        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
 
     def test_create_apdu(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x02\x00\x02\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.create_apdu("i-frame", "M_BO_NA_1", ("periodic", 0, 0), 0, 1, 0, "test", 1, 1))
-        self.assertEqual("ERROR: No valid frame format was given.", wrapper.create_apdu("test", "M_BO_NA_1", ("periodic", 0, 0), 0, 1, 0, "test", 1, 1))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.create_apdu("i-frame", "test", ("periodic", 0, 0), 0, 1, 0, "test", 1, 1))
+        self.assertEqual(b'\x02\x00\x02\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.create_apdu("i-frame", "M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 1, 1))
+        self.assertEqual("ERROR: No valid frame format was given.", wrapper.create_apdu("test", "M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 1, 1))
+        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.create_apdu("i-frame", "test", 0, ("periodic", 0, 0), 1, ["test"], 1, 1))
 
     def test_create_header(self):
         wrapper = IEC104Wrapper()
