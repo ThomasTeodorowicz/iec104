@@ -18,7 +18,7 @@ class IEC104Wrapper():
     """
 
     def __init__(self):
-        # Internal counter for the Information object address
+        # Internal counter for the information object address.
         self.information_object_address = 0
 
     def create_apdu_header(self, apdu):
@@ -40,8 +40,8 @@ class IEC104Wrapper():
         Creates a IEC104 APDU without header.
         :param frame: Frame format to be used.
         :param asdu_type: Type of the message as string.
-        :param sequence: SQ Bit as defined in IEC 104.
-        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit and Testbit.
+        :param sequence: SQ bit as defined in IEC 104.
+        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N bit and Testbit.
         :param common_address: Common address of ASDUs as integer.
         :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :param ssn: Send sequence number. This is also used to store relevant information for the U-Frame(has to contain the function name and type: e.g. "test-con").
@@ -129,8 +129,8 @@ class IEC104Wrapper():
         """
         Adds a IEC 104 ASDU to a struct.
         :param asdu_type: Type of the message as string.
-        :param sequence: SQ Bit as defined in IEC 104.
-        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit and Testbit.
+        :param sequence: SQ bit as defined in IEC 104.
+        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N bit and Testbit.
         :param common_address: Common address of ASDUs as integer.
         :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :param originator_address: Originator address as integer.
@@ -178,14 +178,14 @@ class IEC104Wrapper():
         """
         Determines the IEC 104 variable structure qualifier.
         :param type_id: Type of the message as integer.
-        :param sequence: SQ Bit as defined in IEC 104.
+        :param sequence: SQ bit as defined in IEC 104.
         :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :return: Struct containing an IEC 104 variable structure qualifier as bytestring. ERROR if failed.
         """
         if not type(type_id) is int:
              return "ERROR: The type identification has to be an integer."
         if not sequence in [0,1]:
-            return "ERROR: Sequence has to be 0 or 1."
+            return "ERROR: Sequence bit has to be 0 or 1."
         if (not type(message) is list) or (len(message) > 127):
              return "ERROR: The message has to be a list containing less than 128 objects/elements."
         if type_id in [7, 13]:
@@ -200,17 +200,17 @@ class IEC104Wrapper():
 
     def wrap_cause_of_transmission(self, cause_of_transmission, originator_address = 0):
         """
-        Adds a IEC 104 cause of transmission and originator address to a struct based on the type identification.
-        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N Bit and Testbit.
+        Adds a IEC 104 cause of transmission and originator address to a struct.
+        :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N bit and Testbit.
         :param originator_address: Originator address as integer.
         :return: Struct containing an IEC 104 cause of transmission and originator address as bytestring. ERROR if failed.
         """
         if not type(cause_of_transmission) is tuple:
-            return "ERROR: Cause of transmission also needs a P/N Bit and Testbit."
+            return "ERROR: Cause of transmission also needs a P/N bit and Testbit."
         if not type(cause_of_transmission[0]) is str:
             return "ERROR: Cause of transmission has to be a string."
         if not cause_of_transmission[1] in [0,1]:
-            return "ERROR: P/N Bit has to be 0 or 1."
+            return "ERROR: P/N bit has to be 0 or 1."
         if not cause_of_transmission[2] in [0,1]:
             return "ERROR: Testbit has to be 0 or 1."
         if (not type(originator_address) is int) or (originator_address < 0) or (originator_address > 255):
@@ -239,8 +239,8 @@ class IEC104Wrapper():
         :param common_address: Common address of ASDUs as integer.
         :return: Struct containing an IEC 104 common address as bytestring. ERROR if failed.
         """
-        if (not type(common_address) is int) or (common_address < 1) or (common_address > 65535):
-            return "ERROR: Common address has to be an integer between 1 and 65535."
+        if (not type(common_address) is int) or (common_address < 0) or (common_address > 65535):
+            return "ERROR: Common address has to be an integer between 0 and 65535."
         return struct.pack('<2B', common_address & 0xFF, (common_address >> 8) & 0xFF)
 
     def wrap_information_object_address(self):
@@ -249,9 +249,73 @@ class IEC104Wrapper():
         :return: Struct containing an IEC 104 information object address as bytestring. ERROR if failed.
         """
         if (not type(self.information_object_address) is int) or (self.information_object_address < 0) or (self.information_object_address > 16777215):
-            return "ERROR: Information object address has to be an integer between 1 and 16777215."
+            return "ERROR: Information object address has to be an integer between 0 and 16777215."
         return struct.pack('<3B', self.information_object_address & 0xFF, (self.information_object_address >> 8) & 0xFF, (self.information_object_address >> 16) & 0xFF)
 
+    def wrap_quality_descriptor(self, overflow, blocked, substituted, not_topical, invalid):
+        """
+        Adds a IEC 104 quality descriptor to a struct.
+        :param overflow: Overflow bit as defined in IEC 104.
+        :param blocked: Blocked bit as defined in IEC 104.
+        :param substituted: Substituted bit as defined in IEC 104.
+        :param not_topical: Not topical bit as defined in IEC 104.
+        :param invalid: Invalid bit as defined in IEC 104.
+        :return: Struct containing an IEC 104 quality descriptor as bytestring. ERROR if failed.
+        """
+        if not overflow in [0,1]:
+            return "ERROR: Overflow bit has to be 0 or 1."
+        if not blocked in [0,1]:
+            return "ERROR: Blocked bit has to be 0 or 1."
+        if not substituted in [0,1]:
+            return "ERROR: Substituted bit has to be 0 or 1."
+        if not not_topical in [0,1]:
+            return "ERROR: Not topical bit has to be 0 or 1."
+        if not invalid in [0,1]:
+            return "ERROR: Invalid bit has to be 0 or 1."
+        bl = 16 if blocked == 1 else 0
+        sb = 32 if substituted == 1 else 0
+        nt = 64 if not_topical == 1 else 0
+        iv = 128 if invalid == 1 else 0
+        return struct.pack('<B', overflow + bl + sb + nt + iv)
+
+    def wrap_single_command(self, single_command_state, qualifier_of_command):
+        """
+        Adds a IEC 104 quality descriptor to a struct.
+        :param single_command_state: Single command state bit as defined in IEC 104.
+        :param qualifier_of_command: Qualifier of command as defined in IEC 104. S/E is expected as least significant bit.
+        :return: Struct containing an IEC 104 quality descriptor as bytestring. ERROR if failed.
+        """
+        if not single_command_state in [0,1]:
+            return "ERROR: Single command state bit has to be 0 or 1."
+        if (not type(qualifier_of_command) is int) or (qualifier_of_command < 0) or (qualifier_of_command > 63):
+            return "ERROR: Qualifier of command has to be an integer between 0 and 63."
+        qos = self.wrap_qualifier_of_command((qualifier_of_command >> 1) & 0xFF, qualifier_of_command & 0x01)
+        qos = (qos << 2) & 0xFF
+        return struct.pack('<B', single_command_state + qos)
+
+    def wrap_qualifier_of_command(self, qualifier, select_execute):
+        """
+        Builds a IEC 104 qualifier of command.
+        :param overflow: Number representing a command type as defined in IEC 104.
+        :param select_execute: S/E bit as defined in IEC 104.
+        :return: An IEC 104 quailfier of command as integer. ERROR if failed.
+        """
+        if not select_execute in [0,1]:
+            return "ERROR: S/E bit has to be 0 or 1."
+        if (not type(qualifier) is int) or (qualifier < 0) or (qualifier > 31):
+            return "ERROR: Qualifier of command has to be an integer between 0 and 31."
+        se = 32 if select_execute == 1 else 0
+        return qualifier + se
+
+    def wrap_qualifier_of_interrogation(self, qualifier):
+        """
+        Adds a IEC 104 qualifier of interrogation to a struct.
+        :param qualifier: Number representing an interrogation type as defined in IEC 104.
+        :return: Struct containing an IEC 104 qualifier of interrogation as bytestring. ERROR if failed.
+        """
+        if (not type(qualifier) is int) or (qualifier < 0) or (qualifier > 255):
+            return "ERROR: Qualifier of interrogation has to be an integer between 0 and 255."
+        return struct.pack('<B', qualifier)
 
     def unwrap_message(self):
         pass
@@ -270,11 +334,11 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x02\x00\x02\x00', wrapper.i_frame(1, 1))
         self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(-1, 1))
         self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(3.4, 1))
-        self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(255643456234, 1))
+        self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(32768, 1))
         self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame("test", 1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, -1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, 3.4))
-        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, 255643456234))
+        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, 32768))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, "test"))
 
     def test_s_frame(self):
@@ -282,7 +346,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x01\x00\x02\x00', wrapper.s_frame(1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(-1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(3.4))
-        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(255643456234))
+        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(32768))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame("test"))
 
     def test_u_frame(self):
@@ -315,7 +379,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier(-2, 0, ["test"]))
         self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier(3.5, 0, ["test"]))
         self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier("test", 0, ["test"]))
-        self.assertEqual("ERROR: Sequence has to be 0 or 1.", wrapper.wrap_variable_structure_qualifier(7, 20, ["test"]))
+        self.assertEqual("ERROR: Sequence bit has to be 0 or 1.", wrapper.wrap_variable_structure_qualifier(7, 20, ["test"]))
         self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, "test"))
         self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, list("Lorem \
          ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua.")))
@@ -343,15 +407,15 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x0b\x00', wrapper.wrap_cause_of_transmission(("return information due to remote command", 0, 0), 0))
         self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_cause_of_transmission(("test", 0, 0), 0))
         self.assertEqual("ERROR: Cause of transmission has to be a string.", wrapper.wrap_cause_of_transmission((0, 0, 0), 0))
-        self.assertEqual("ERROR: Cause of transmission also needs a P/N Bit and Testbit.", wrapper.wrap_cause_of_transmission("test", 0))
+        self.assertEqual("ERROR: Cause of transmission also needs a P/N bit and Testbit.", wrapper.wrap_cause_of_transmission("test", 0))
 
     def test_p_n(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x01\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 0))
         self.assertEqual(b'\x41\x00', wrapper.wrap_cause_of_transmission(("periodic", 1, 0), 0))
-        self.assertEqual("ERROR: P/N Bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 54, 0), 0))
-        self.assertEqual("ERROR: P/N Bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 3.4, 0), 0))
-        self.assertEqual("ERROR: P/N Bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", "test", 0), 0))
+        self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 54, 0), 0))
+        self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 3.4, 0), 0))
+        self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", "test", 0), 0))
 
     def test_testbit(self):
         wrapper = IEC104Wrapper()
@@ -368,39 +432,84 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x01\xFF', wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 255))
         self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), -1))
         self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 3.4))
-        self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 2556))
+        self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 256))
         self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), "test"))
 
     def test_common_address(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x01\x00', wrapper.wrap_common_address(1))
+        self.assertEqual(b'\x00\x00', wrapper.wrap_common_address(0))
         self.assertEqual(b'\x8B\x13', wrapper.wrap_common_address(5003))
         self.assertEqual(b'\xFF\xFF', wrapper.wrap_common_address(65535))
-        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_common_address(0))
-        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_common_address(44444444443))
-        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_common_address(3.4))
-        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_common_address("test"))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address(-1))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address(65536))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address(3.4))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address("test"))
 
     def test_information_object_address(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x00\x00\x00', wrapper.wrap_information_object_address())
         wrapper.information_object_address = -1
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
-        wrapper.information_object_address = 44444444443
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
+        wrapper.information_object_address = 16777216
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
         wrapper.information_object_address = 3.4
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
         wrapper.information_object_address = "test"
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_information_object_address())
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
+
+    def test_quality_descriptor(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'\x00', wrapper.wrap_quality_descriptor(0, 0, 0, 0, 0))
+        self.assertEqual(b'\x01', wrapper.wrap_quality_descriptor(1, 0, 0, 0, 0))
+        self.assertEqual(b'\x10', wrapper.wrap_quality_descriptor(0, 1, 0, 0, 0))
+        self.assertEqual(b'\x20', wrapper.wrap_quality_descriptor(0, 0, 1, 0, 0))
+        self.assertEqual(b'\x40', wrapper.wrap_quality_descriptor(0, 0, 0, 1, 0))
+        self.assertEqual(b'\x80', wrapper.wrap_quality_descriptor(0, 0, 0, 0, 1))
+        self.assertEqual(b'\xF1', wrapper.wrap_quality_descriptor(1, 1, 1, 1, 1))
+        self.assertEqual("ERROR: Overflow bit has to be 0 or 1.", wrapper.wrap_quality_descriptor(10, 0, 0, 0, 0))
+        self.assertEqual("ERROR: Blocked bit has to be 0 or 1.", wrapper.wrap_quality_descriptor(0, 10, 0, 0, 0))
+        self.assertEqual("ERROR: Substituted bit has to be 0 or 1.", wrapper.wrap_quality_descriptor(0, 0, 10, 0, 0))
+        self.assertEqual("ERROR: Not topical bit has to be 0 or 1.", wrapper.wrap_quality_descriptor(0, 0, 0, 10, 0))
+        self.assertEqual("ERROR: Invalid bit has to be 0 or 1.", wrapper.wrap_quality_descriptor(0, 0, 0, 0, 10))
+
+    def test_qualifier_of_interrogation(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'\xFF', wrapper.wrap_qualifier_of_interrogation(255))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation(-1))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation(3.4))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation("test"))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation(256))
+
+    def test_qualifier_of_command(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(0, wrapper.wrap_qualifier_of_command(0, 0))
+        self.assertEqual(31, wrapper.wrap_qualifier_of_command(31, 0))
+        self.assertEqual(32, wrapper.wrap_qualifier_of_command(0, 1))
+        self.assertEqual("ERROR: S/E bit has to be 0 or 1.", wrapper.wrap_qualifier_of_command(0, 10))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command(-1, 0))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command(3.4, 0))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command("test", 0))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command(32, 0))
+
+    def test_single_command(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'\x00', wrapper.wrap_single_command(0, 0))
+        self.assertEqual(b'\x01', wrapper.wrap_single_command(1, 0))
+        self.assertEqual(b'\xFC', wrapper.wrap_single_command(0, 63))
+        self.assertEqual("ERROR: Single command state bit has to be 0 or 1.", wrapper.wrap_single_command(10, 0))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, -1))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, 3.4))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, "test"))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, 64))
 
     def test_asdu(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
         self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu(1, 0, ("periodic", 0, 0), 1, ["test"], 0))
         self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("test", 0, 0), 1, ["test"], 0))
-        self.assertEqual("ERROR: Common address has to be an integer between 1 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), -1, ["test"], 0))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), -1, ["test"], 0))
         wrapper.information_object_address = -1
-        self.assertEqual("ERROR: Information object address has to be an integer between 1 and 16777215.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
 
     def test_create_apdu(self):
         wrapper = IEC104Wrapper()
