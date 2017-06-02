@@ -153,7 +153,7 @@ class IEC104Wrapper():
         io = self.wrap_information_object(type_id, vsq, message)
         if type(io) is str:
             return io
-        return struct.pack('<2B', type_id, vsq) + cot + ca + ioa
+        return struct.pack('<2B', type_id, vsq) + cot + ca + io
 
     def wrap_asdu_type(self, asdu_type):
         """
@@ -187,7 +187,7 @@ class IEC104Wrapper():
              return "ERROR: The type identification has to be an integer."
         if not sequence in [0,1]:
             return "ERROR: Sequence bit has to be 0 or 1."
-        if (not type(message) is list) or (len(message) > 127):
+        if (not type(message) is list) or (len(message) > 128):
              return "ERROR: The message has to be a list containing less than 128 objects/elements."
         if type_id in [7, 13]:
             vsq = len(message)
@@ -244,33 +244,26 @@ class IEC104Wrapper():
             return "ERROR: Common address has to be an integer between 0 and 65535."
         return struct.pack('<2B', common_address & 0xFF, (common_address >> 8) & 0xFF)
 
-    def wrap_information_object_address(self):
-        """
-        Creates an IEC 104 information object address.
-        :return: IEC 104 information object address as a bytestring. ERROR if failed.
-        """
-        if (not type(self.information_object_address) is int) or (self.information_object_address < 0) or (self.information_object_address > 16777215):
-            return "ERROR: Information object address has to be an integer between 0 and 16777215."
-        return struct.pack('<3B', self.information_object_address & 0xFF, (self.information_object_address >> 8) & 0xFF, (self.information_object_address >> 16) & 0xFF)
-
     def wrap_information_object(self, type_id, vsq, message):
         """
         Packs the message into the format that is dictated by the type identification.
         :param type_id: Type of the message as integer.
         :param vsq: Variable structure qualifier as defined in IEC 104 as integer.
-        :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
+        :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements. The wrapping functions for each type explain which specific \
+        format is expected. For the type C_RD_NA_1 a single object/element is expected that will not be used.
         :return: An information object as defined in IEC 104 as a bytestring. ERROR if failed.
         """
         result = b''
         i = 0
         if not type(type_id) is int:
-             return "ERROR: The type identification has to be an integer."
+            return "ERROR: The type identification has to be an integer."
         if not type(vsq) is int:
-             return "ERROR: The variable structure qualifier has to be an integer."
-        if (not type(message) is list) or (len(message) > 127):
-             return "ERROR: The message has to be a list containing less than 128 objects/elements."
+            return "ERROR: The variable structure qualifier has to be an integer."
+        if (not type(message) is list) or (len(message) > 128):
+            return "ERROR: The message has to be a list containing less than 128 objects/elements."
         # Number of objects/elements expected based on the VSQ value
         length = (vsq & 0x7F)
+        # No information object needed
         if length == 0:
             return result
         if length > len(message):
@@ -289,14 +282,14 @@ class IEC104Wrapper():
                     if type(temp) is str:
                         return temp
                     result += temp
-                    i -= 1
+                    i += 1
             elif type_id == 13:
                 while i < length:
                     temp = self.wrap_information_object_m_me_nc_1(message[i])
                     if type(temp) is str:
                         return temp
                     result += temp
-                    i -= 1
+                    i += 1
             else: 
                 return "ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements."
         # SQ == 0
@@ -311,7 +304,7 @@ class IEC104Wrapper():
                     if type(temp) is str:
                         return temp
                     result += temp
-                    i -= 1
+                    i += 1
             elif type_id == 13:
                 while i < length:
                     temp = self.wrap_information_object_address()
@@ -322,7 +315,7 @@ class IEC104Wrapper():
                     if type(temp) is str:
                         return temp
                     result += temp
-                    i -= 1
+                    i += 1
             elif type_id == 45:
                 if length != 1:
                     return "ERROR: C_SC_NA_1 length has to be 1."
@@ -330,7 +323,7 @@ class IEC104Wrapper():
                 if type(temp) is str:
                     return temp
                 result += temp
-                temp = self.wrap_information_object_c_sc_na_1(message)
+                temp = self.wrap_information_object_c_sc_na_1(message[0])
                 if type(temp) is str:
                     return temp
                 result += temp
@@ -341,7 +334,7 @@ class IEC104Wrapper():
                 if type(temp) is str:
                     return temp
                 result += temp
-                temp = self.wrap_information_object_c_ic_na_1(message)
+                temp = self.wrap_information_object_c_ic_na_1(message[0])
                 if type(temp) is str:
                     return temp
                 result += temp
@@ -356,22 +349,37 @@ class IEC104Wrapper():
                 return "ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements."
         return result
 
+    def wrap_information_object_address(self):
+        """
+        Creates an IEC 104 information object address.
+        :return: IEC 104 information object address as a bytestring. ERROR if failed.
+        """
+        if (not type(self.information_object_address) is int) or (self.information_object_address < 0) or (self.information_object_address > 16777215):
+            return "ERROR: Information object address has to be an integer between 0 and 16777215."
+        result = struct.pack('<3B', self.information_object_address & 0xFF, (self.information_object_address >> 8) & 0xFF, (self.information_object_address >> 16) & 0xFF)
+        self.set_information_object_address(self.information_object_address + 1)
+        return result
+
     def wrap_information_object_m_bo_na_1(self, message):
         """
         Packs the message into the M_BO_NA_1 format. 
-        :param message: Tuple containing a string and a tuple containing the following bits of the IEC 104 quality descriptor in this order: \
+        :param message: Tuple containing a string or bytestring and a tuple containing the following bits of the IEC 104 quality descriptor in this order: \
         blocked, substituted, not topical, invalid. 
         :return: Message as a bytestring in the M_BO_NA_1 format. ERROR if failed.
         """
         if not type(message) is tuple:
             return "ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel."
-        if not type(message[0]) is str:
-             return "ERROR: M_BO_NA_1 expects a string."
-        overflow = 1 if len(message[0]) > 32 else 0
+        if not (type(message[0]) is bytes or type(message[0]) is str):
+             return "ERROR: M_BO_NA_1 expects a string or bytestring."
+        if type(message[0]) is str:
+            msg = message[0].encode()
+        else:
+            msg = message[0]
+        overflow = 1 if len(msg) > 4 else 0
         io = self.wrap_quality_descriptor(overflow, message[1][0], message[1][1], message[1][2], message[1][3])
         if type(io) is str:
             return io
-        return struct.pack('<4B', message[0]) + io
+        return struct.pack('<4s', msg[0:4]) + io
 
     def wrap_information_object_m_me_nc_1(self, message):
         """
@@ -381,13 +389,13 @@ class IEC104Wrapper():
         :return: Message as a bytestring in the M_ME_NC_1 format. ERROR if failed.
         """
         if not type(message) is tuple:
-            return "ERROR: M_BO_NA_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel."
+            return "ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel."
         if not type(message[0]) is float:
-             return "ERROR: M_ME_NC_1 expects a float value."
+            return "ERROR: M_ME_NC_1 expects a float value."
         io = self.wrap_quality_descriptor(0, message[1][0], message[1][1], message[1][2], message[1][3])
         if type(io) is str:
             return io
-        return struct.pack('<4B', message[0]) + io
+        return struct.pack('<f', message[0]) + io
 
     def wrap_information_object_c_sc_na_1(self, message):
         """
@@ -473,17 +481,50 @@ class IEC104Wrapper():
             return "ERROR: Qualifier of interrogation has to be an integer between 0 and 255."
         return struct.pack('<B', qualifier)
 
-    def unwrap_message(self):
-        pass
+    def wrap_message_for_m_bo_na_1(self, message):
+        """
+        Creates a message from a string that can be used with wrap_information_object_m_bo_na_1.
+        :param message: String to be wrapped.
+        :return: A tuple containing a bytestring and a tuple containing the following bits of the IEC 104 quality descriptor in this order: \
+        blocked, substituted, not topical, invalid. All bits are set to 0. ERROR if failed.
+        """
+        if not type(message) is str:
+            return "ERROR: wrap_message_for_m_bo_na_1 expects a string as message."
+        n = 4
+        msg = [message[i:i+n] for i in range(0, len(message), n)]
+        result = [None] * len(msg)
+        for i in range(0, len(msg)):
+            result[i] = (msg[i], (0, 0, 0, 0))
+        return result
+        
+    def get_information_object_address(self):
+        """
+        Getter for information object address.
+        """
+        return self.information_object_address
+
+    def set_information_object_address(self, information_object_address):
+        """
+        Setter for information object address.
+        """
+        if type(information_object_address) is int:
+            self.information_object_address = information_object_address
 
 class TestWrapper(unittest.TestCase):
+
+    def test_message_for_m_bo_na_1(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual([('Test', (0, 0, 0, 0)), ('ing:', (0, 0, 0, 0)), (' Tes', (0, 0, 0, 0)), ('t th', (0, 0, 0, 0)), ('is.', (0, 0, 0, 0))], \
+            wrapper.wrap_message_for_m_bo_na_1("Testing: Test this."))
+        self.assertEqual("ERROR: wrap_message_for_m_bo_na_1 expects a string as message.", wrapper.wrap_message_for_m_bo_na_1(1))
+
 
     def test_wrap_frame(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x02\x00\x02\x00', wrapper.wrap_frame("i-frame", 1, 1))
         self.assertEqual(b'\x01\x00\x02\x00', wrapper.wrap_frame("s-frame", 0, 1))
         self.assertEqual(b'\x83\x00\x00\x00', wrapper.wrap_frame("u-frame", "testcon", 0))
-        self.assertEqual("ERROR: No valid frame format was given.", wrapper.wrap_frame("test", 0, 0))
+        self.assertEqual("ERROR: No valid frame format was given.", wrapper.wrap_frame("Test", 0, 0))
 
     def test_i_frame(self):
         wrapper = IEC104Wrapper()
@@ -491,11 +532,11 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(-1, 1))
         self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(3.4, 1))
         self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(32768, 1))
-        self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame("test", 1))
+        self.assertEqual("ERROR: Send sequence number has to be an integer between 0 and 32767.", wrapper.i_frame("Test", 1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, -1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, 3.4))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, 32768))
-        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, "test"))
+        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.i_frame(1, "Test"))
 
     def test_s_frame(self):
         wrapper = IEC104Wrapper()
@@ -503,7 +544,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(-1))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(3.4))
         self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame(32768))
-        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame("test"))
+        self.assertEqual("ERROR: Receive sequence number has to be an integer between 0 and 32767.", wrapper.s_frame("Test"))
 
     def test_u_frame(self):
         wrapper = IEC104Wrapper()
@@ -513,30 +554,30 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x43\x00\x00\x00', wrapper.u_frame("testact"))
         self.assertEqual(b'\x07\x00\x00\x00', wrapper.u_frame("startact"))
         self.assertEqual(b'\x13\x00\x00\x00', wrapper.u_frame("stopact"))
-        self.assertEqual(b'\x03\x00\x00\x00', wrapper.u_frame("test"))
+        self.assertEqual(b'\x03\x00\x00\x00', wrapper.u_frame("Test"))
 
 
     def test_variable_structure_qualifier(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(7, 0, ["test"]))
-        self.assertEqual(2, wrapper.wrap_variable_structure_qualifier(7, 0, ["test", "test"]))
-        self.assertEqual(129, wrapper.wrap_variable_structure_qualifier(7, 1, ["test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(13, 0, ["test"]))
-        self.assertEqual(2, wrapper.wrap_variable_structure_qualifier(13, 0, ["test", "test"]))
-        self.assertEqual(129, wrapper.wrap_variable_structure_qualifier(13, 1, ["test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 0, ["test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 0, ["test", "test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 1, ["test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(100, 0, ["test", "test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(100, 1, ["test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 0, ["test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 0, ["test", "test"]))
-        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 1, ["test"]))
-        self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier(-2, 0, ["test"]))
-        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier(3.5, 0, ["test"]))
-        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier("test", 0, ["test"]))
-        self.assertEqual("ERROR: Sequence bit has to be 0 or 1.", wrapper.wrap_variable_structure_qualifier(7, 20, ["test"]))
-        self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, "test"))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(7, 0, ["Test"]))
+        self.assertEqual(2, wrapper.wrap_variable_structure_qualifier(7, 0, ["Test", "Test"]))
+        self.assertEqual(129, wrapper.wrap_variable_structure_qualifier(7, 1, ["Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(13, 0, ["Test"]))
+        self.assertEqual(2, wrapper.wrap_variable_structure_qualifier(13, 0, ["Test", "Test"]))
+        self.assertEqual(129, wrapper.wrap_variable_structure_qualifier(13, 1, ["Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 0, ["Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 0, ["Test", "Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(45, 1, ["Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(100, 0, ["Test", "Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(100, 1, ["Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 0, ["Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 0, ["Test", "Test"]))
+        self.assertEqual(1, wrapper.wrap_variable_structure_qualifier(102, 1, ["Test"]))
+        self.assertEqual("ERROR: The type identification was not recognized.", wrapper.wrap_variable_structure_qualifier(-2, 0, ["Test"]))
+        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier(3.5, 0, ["Test"]))
+        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_variable_structure_qualifier("Test", 0, ["Test"]))
+        self.assertEqual("ERROR: Sequence bit has to be 0 or 1.", wrapper.wrap_variable_structure_qualifier(7, 20, ["Test"]))
+        self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, "Test"))
         self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_variable_structure_qualifier(7, 0, list("Lorem \
          ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua.")))
 
@@ -547,7 +588,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(45, wrapper.wrap_asdu_type("C_SC_NA_1"))
         self.assertEqual(100, wrapper.wrap_asdu_type("C_IC_NA_1"))
         self.assertEqual(102, wrapper.wrap_asdu_type("C_RD_NA_1"))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type("test"))
+        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type("Test"))
         self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type(1))
         self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type(3.4))
 
@@ -561,9 +602,9 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x06\x00', wrapper.wrap_cause_of_transmission(("activation", 0, 0), 0))
         self.assertEqual(b'\x07\x00', wrapper.wrap_cause_of_transmission(("activation confirmation", 0, 0), 0))
         self.assertEqual(b'\x0b\x00', wrapper.wrap_cause_of_transmission(("return information due to remote command", 0, 0), 0))
-        self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_cause_of_transmission(("test", 0, 0), 0))
+        self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_cause_of_transmission(("Test", 0, 0), 0))
         self.assertEqual("ERROR: Cause of transmission has to be a string.", wrapper.wrap_cause_of_transmission((0, 0, 0), 0))
-        self.assertEqual("ERROR: Cause of transmission also needs a P/N bit and Testbit.", wrapper.wrap_cause_of_transmission("test", 0))
+        self.assertEqual("ERROR: Cause of transmission also needs a P/N bit and Testbit.", wrapper.wrap_cause_of_transmission("Test", 0))
 
     def test_p_n(self):
         wrapper = IEC104Wrapper()
@@ -571,7 +612,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x41\x00', wrapper.wrap_cause_of_transmission(("periodic", 1, 0), 0))
         self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 54, 0), 0))
         self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 3.4, 0), 0))
-        self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", "test", 0), 0))
+        self.assertEqual("ERROR: P/N bit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", "Test", 0), 0))
 
     def test_testbit(self):
         wrapper = IEC104Wrapper()
@@ -579,7 +620,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x81\x00', wrapper.wrap_cause_of_transmission(("periodic", 0, 1), 0))
         self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, 54), 0))
         self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, 3.4), 0))
-        self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, "test"), 0))
+        self.assertEqual("ERROR: Testbit has to be 0 or 1.", wrapper.wrap_cause_of_transmission(("periodic", 0, "Test"), 0))
 
     def test_original_address(self):
         wrapper = IEC104Wrapper()
@@ -589,7 +630,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), -1))
         self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 3.4))
         self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), 256))
-        self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), "test"))
+        self.assertEqual("ERROR: Originator address has to be an integer between 0 and 255.", wrapper.wrap_cause_of_transmission(("periodic", 0, 0), "Test"))
 
     def test_common_address(self):
         wrapper = IEC104Wrapper()
@@ -599,18 +640,19 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address(-1))
         self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address(65536))
         self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address(3.4))
-        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address("test"))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_common_address("Test"))
 
     def test_information_object_address(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x00\x00\x00', wrapper.wrap_information_object_address())
-        wrapper.information_object_address = -1
+        self.assertEqual(b'\x01\x00\x00', wrapper.wrap_information_object_address())
+        wrapper.set_information_object_address(-1)
         self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
-        wrapper.information_object_address = 16777216
+        wrapper.set_information_object_address(16777216)
         self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
-        wrapper.information_object_address = 3.4
+        wrapper.set_information_object_address(3.4)
         self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
-        wrapper.information_object_address = "test"
+        wrapper.set_information_object_address("Test")
         self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object_address())
 
     def test_quality_descriptor(self):
@@ -633,7 +675,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\xFF', wrapper.wrap_qualifier_of_interrogation(255))
         self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation(-1))
         self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation(3.4))
-        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation("test"))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation("Test"))
         self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_qualifier_of_interrogation(256))
 
     def test_qualifier_of_command(self):
@@ -644,7 +686,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: S/E bit has to be 0 or 1.", wrapper.wrap_qualifier_of_command(0, 10))
         self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command(-1, 0))
         self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command(3.4, 0))
-        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command("test", 0))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command("Test", 0))
         self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 31.", wrapper.wrap_qualifier_of_command(32, 0))
 
     def test_single_command(self):
@@ -655,23 +697,106 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: Single command state bit has to be 0 or 1.", wrapper.wrap_single_command(10, 0))
         self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, -1))
         self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, 3.4))
-        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, "test"))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, "Test"))
         self.assertEqual("ERROR: Qualifier of command has to be an integer between 0 and 63.", wrapper.wrap_single_command(0, 64))
+
+    def test_information_object_m_bo_na_1(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'Test\x00', wrapper.wrap_information_object_m_bo_na_1(("Test", (0, 0, 0, 0))))
+        self.assertEqual(b'Test\x20', wrapper.wrap_information_object_m_bo_na_1(("Test", (0, 1, 0, 0))))
+        self.assertEqual(b'Test\x40', wrapper.wrap_information_object_m_bo_na_1(("Test", (0, 0, 1, 0))))
+        self.assertEqual(b'Test\x80', wrapper.wrap_information_object_m_bo_na_1(("Test", (0, 0, 0, 1))))
+        self.assertEqual(b'Test\xF0', wrapper.wrap_information_object_m_bo_na_1(("Test", (1, 1, 1, 1))))
+        self.assertEqual(b'Test\x00', wrapper.wrap_information_object_m_bo_na_1((b'Test', (0, 0, 0, 0))))
+        self.assertEqual(b'Test\x01', wrapper.wrap_information_object_m_bo_na_1(("Tested", (0, 0, 0, 0))))
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+            wrapper.wrap_information_object_m_bo_na_1(("Test")))
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string or bytestring.", wrapper.wrap_information_object_m_bo_na_1((1, (0, 0, 0, 0))))
+
+    def test_information_object_m_me_nc_1(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'\x9a\x99\x59\x40\x00', wrapper.wrap_information_object_m_me_nc_1((3.4, (0, 0, 0, 0))))
+        self.assertEqual(b'\x9a\x99\x59\x40\x20', wrapper.wrap_information_object_m_me_nc_1((3.4, (0, 1, 0, 0))))
+        self.assertEqual(b'\x9a\x99\x59\x40\x40', wrapper.wrap_information_object_m_me_nc_1((3.4, (0, 0, 1, 0))))
+        self.assertEqual(b'\x9a\x99\x59\x40\x80', wrapper.wrap_information_object_m_me_nc_1((3.4, (0, 0, 0, 1))))
+        self.assertEqual(b'\x9a\x99\x59\x40\xF0', wrapper.wrap_information_object_m_me_nc_1((3.4, (1, 1, 1, 1))))
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+            wrapper.wrap_information_object_m_me_nc_1(("Test")))
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value.", wrapper.wrap_information_object_m_me_nc_1((1, (0, 0, 0, 0))))
+
+    def test_information_object_c_sc_na_1(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'\xFC', wrapper.wrap_information_object_c_sc_na_1((0, 63)))
+        self.assertEqual("ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tupel.", wrapper.wrap_information_object_c_sc_na_1("Test"))
+
+    def test_information_object_c_ic_na_1(self):
+        wrapper = IEC104Wrapper()
+        self.assertEqual(b'\xFF', wrapper.wrap_information_object_c_ic_na_1(255))
+
+    def test_information_object(self):
+        wrapper = IEC104Wrapper()
+        # "Normal" workflow
+        self.assertEqual(b'', wrapper.wrap_information_object(102, 0, ["Read"]))
+        self.assertEqual(b'\x00\x00\x00Test\x00Test\x00', wrapper.wrap_information_object(7, 130, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))]))
+        self.assertEqual(b'\x01\x00\x00\x9a\x99\x59\x40\x00\x9a\x99\x59\x40\x00', wrapper.wrap_information_object(13, 130, [(3.4, (0, 0, 0, 0)), (3.4, (0, 0, 0, 0))]))
+        self.assertEqual(b'\x02\x00\x00Test\x00\x03\x00\x00Test\x00', wrapper.wrap_information_object(7, 2, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))]))
+        self.assertEqual(b'\x04\x00\x00\x9a\x99\x59\x40\x00\x05\x00\x00\x9a\x99\x59\x40\x00', wrapper.wrap_information_object(13, 2, [(3.4, (0, 0, 0, 0)), (3.4, (0, 0, 0, 0))]))
+        self.assertEqual(b'\x06\x00\x00\xFC', wrapper.wrap_information_object(45, 1, [(0, 63)]))
+        self.assertEqual(b'\x07\x00\x00\xFF', wrapper.wrap_information_object(100, 1, [255]))
+        self.assertEqual(b'\x08\x00\x00', wrapper.wrap_information_object(102, 1, ["Read"]))
+
+        # Exceptions
+        self.assertEqual("ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements.", wrapper.wrap_information_object(-2, 129, ["Read"]))
+        self.assertEqual("ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements.", wrapper.wrap_information_object(-2, 1, ["Read"]))
+        self.assertEqual("ERROR: Variable structure qualifier expects more messages than given.", wrapper.wrap_information_object(102, 2, ["Read"]))
+        self.assertEqual("ERROR: Variable structure qualifier expects fewer messages than given.", wrapper.wrap_information_object(102, 1, ["Read", "Read"]))
+        self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_information_object("Test", 1, ["Read"]))
+        self.assertEqual("ERROR: The variable structure qualifier has to be an integer.", wrapper.wrap_information_object(102, "Test", ["Read"]))
+        self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_information_object(102, 1, [None]*129))
+        self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_information_object(102, 1, "Read"))
+
+        # Exception catching
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+            wrapper.wrap_information_object(7, 129, ["Test"]))
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+            wrapper.wrap_information_object(13, 129, ["Test"]))
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+            wrapper.wrap_information_object(7, 1, ["Test"]))
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+            wrapper.wrap_information_object(13, 1, ["Test"]))
+        self.assertEqual("ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tupel.", wrapper.wrap_information_object(45, 1, ["Test"]))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_information_object(100, 1, [256]))
+
+        # Exception catching information object address
+        wrapper.set_information_object_address(16777216)
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object\
+            (7, 130, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))]))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object\
+            (13, 130, [(3.4, (0, 0, 0, 0)), (3.4, (0, 0, 0, 0))]))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object\
+            (7, 2, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))]))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object\
+            (13, 2, [(3.4, (0, 0, 0, 0)), (3.4, (0, 0, 0, 0))]))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object(45, 1, [(0, 63)]))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object(100, 1, [255]))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_information_object(102, 1, ["Read"]))
 
     def test_asdu(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu(1, 0, ("periodic", 0, 0), 1, ["test"], 0))
-        self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("test", 0, 0), 1, ["test"], 0))
-        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), -1, ["test"], 0))
+        self.assertEqual(b'\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', \
+            wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))], 0))
+        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu(1, 0, ("periodic", 0, 0), 1, ["Test"], 0))
+        self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("Test", 0, 0), 1, ["Test"], 0))
+        self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), -1, ["Test"], 0))
         wrapper.information_object_address = -1
-        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 0))
+        self.assertEqual("ERROR: Information object address has to be an integer between 0 and 16777215.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["Test"], 0))
 
     def test_create_apdu(self):
         wrapper = IEC104Wrapper()
-        self.assertEqual(b'\x02\x00\x02\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00', wrapper.create_apdu("i-frame", "M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 1, 1))
-        self.assertEqual("ERROR: No valid frame format was given.", wrapper.create_apdu("test", "M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["test"], 1, 1))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.create_apdu("i-frame", "test", 0, ("periodic", 0, 0), 1, ["test"], 1, 1))
+        self.assertEqual(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', \
+            wrapper.create_apdu("i-frame", "M_BO_NA_1", 0, ("periodic", 0, 0), 1, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))], 1, 1))
+        self.assertEqual("ERROR: No valid frame format was given.", wrapper.create_apdu("Test", "M_BO_NA_1", 0, ("periodic", 0, 0), 1, ["Test"], 1, 1))
+        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.create_apdu("i-frame", "Test", 0, ("periodic", 0, 0), 1, ["Test"], 1, 1))
 
     def test_create_header(self):
         wrapper = IEC104Wrapper()
