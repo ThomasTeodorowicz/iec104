@@ -52,14 +52,14 @@ class IEC104Wrapper():
         """
         Creates a IEC 104 APDU without header.
         :param frame: Frame format to be used.
-        :param asdu_type: Type of the message as string.
+        :param asdu_type: ASDU type as a string.
         :param sequence: SQ bit as defined in IEC 104.
         :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N bit and Testbit.
-        :param common_address: Common address of ASDUs as integer.
+        :param common_address: Common address of ASDUs as an integer.
         :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :param ssn: Send sequence number. This is also used to store relevant information for the U-Frame(has to contain the function name and type: e.g. "test-con").
         :param rsn: Receive sequence number.
-        :param originator_address: Originator address as integer.
+        :param originator_address: Originator address as an integer.
         :return: IEC 104 APDU without header as a bytestring. ERROR if failed.
         """
         apci = self.wrap_frame(frame, ssn, rsn)
@@ -79,6 +79,8 @@ class IEC104Wrapper():
         :param rsn: Receive sequence number.
         :return: IEC 104 frame as a bytestring. ERROR if failed.
         """
+        if not type(frame) is str:
+            return "ERROR: Frame format has to be a string."
         if frame == "i-frame":
             res = self.i_frame(ssn, rsn)
         elif frame == "s-frame":
@@ -141,7 +143,7 @@ class IEC104Wrapper():
     def wrap_asdu(self, asdu_type, sequence, cause_of_transmission, common_address, message, originator_address = 0):
         """
         Creates a IEC 104 ASDU.
-        :param asdu_type: Type of the message as string.
+        :param asdu_type: ASDU type as string.
         :param sequence: SQ bit as defined in IEC 104.
         :param cause_of_transmission: A tuple containing the cause of transmission as string(e.g. periodic), P/N bit and Testbit.
         :param common_address: Common address of ASDUs as integer.
@@ -171,9 +173,11 @@ class IEC104Wrapper():
     def wrap_asdu_type(self, asdu_type):
         """
         Finds the type identification corresponding to the given ASDU type.
-        :param asdu_type: Type of the message as string.
+        :param asdu_type: ASDU type as string.
         :return: Type identification as integer. ERROR if failed.
         """
+        if not type(asdu_type) is str:
+            return "ERROR: The ASDU type has to be a string."
         if asdu_type == 'M_BO_NA_1':
             type_id = M_BO_NA_1
         elif asdu_type == 'M_ME_NC_1':
@@ -191,7 +195,7 @@ class IEC104Wrapper():
     def wrap_variable_structure_qualifier(self, type_id, sequence, message):
         """
         Determines the IEC 104 variable structure qualifier.
-        :param type_id: Type of the message as integer.
+        :param type_id: APDU type as integer.
         :param sequence: SQ bit as defined in IEC 104.
         :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements.
         :return: Variable structure qualifier as defined in IEC 104 as integer. ERROR if failed.
@@ -260,8 +264,8 @@ class IEC104Wrapper():
     def wrap_information_object(self, type_id, vsq, message):
         """
         Packs the message into the format that is dictated by the type identification.
-        :param type_id: Type of the message as integer.
-        :param vsq: Variable structure qualifier as defined in IEC 104 as integer.
+        :param type_id: Type of the message as an integer.
+        :param vsq: Variable structure qualifier as defined in IEC 104 as an integer.
         :param message: Message to be wrapped. Has to be a list containing less than 128 objects/elements. The wrapping functions for each type explain which specific \
         format is expected. For the type C_RD_NA_1 a single object/element is expected that will not be used.
         :return: An information object as defined in IEC 104 as a bytestring. ERROR if failed.
@@ -359,7 +363,7 @@ class IEC104Wrapper():
                     return temp
                 result += temp
             else:
-                return "ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements."
+                return "ERROR: The ASDU type was not recognized or has to be a sequence of elements."
         return result
 
     def wrap_information_object_address(self):
@@ -381,7 +385,7 @@ class IEC104Wrapper():
         :return: Message as a bytestring in the M_BO_NA_1 format. ERROR if failed.
         """
         if not type(message) is tuple:
-            return "ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel."
+            return "ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tuple."
         if not (type(message[0]) is bytes or type(message[0]) is str):
              return "ERROR: M_BO_NA_1 expects a string or bytestring."
         if type(message[0]) is str:
@@ -402,7 +406,7 @@ class IEC104Wrapper():
         :return: Message as a bytestring in the M_ME_NC_1 format. ERROR if failed.
         """
         if not type(message) is tuple:
-            return "ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel."
+            return "ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tuple."
         if not type(message[0]) is float:
             return "ERROR: M_ME_NC_1 expects a float value."
         io = self.wrap_quality_descriptor(0, message[1][0], message[1][1], message[1][2], message[1][3])
@@ -417,7 +421,7 @@ class IEC104Wrapper():
         :return: Message as a bytestring in the C_SC_NA_1 format. ERROR if failed.
         """
         if not type(message) is tuple:
-            return "ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tupel."
+            return "ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tuple."
         io = self.wrap_single_command(message[0], message[1])
         return io
         
@@ -457,18 +461,18 @@ class IEC104Wrapper():
 
     def wrap_single_command(self, single_command_state, qualifier_of_command):
         """
-        Creates an IEC 104 quality descriptor.
+        Creates an IEC 104 single command.
         :param single_command_state: Single command state bit as defined in IEC 104.
         :param qualifier_of_command: Qualifier of command as defined in IEC 104. S/E is expected as least significant bit.
-        :return: Struct containing an IEC 104 quality descriptor as a bytestring. ERROR if failed.
+        :return: Struct containing an IEC 104 single command as a bytestring. ERROR if failed.
         """
         if not single_command_state in [0,1]:
             return "ERROR: Single command state bit has to be 0 or 1."
         if (not type(qualifier_of_command) is int) or (qualifier_of_command < 0) or (qualifier_of_command > 63):
             return "ERROR: Qualifier of command has to be an integer between 0 and 63."
-        qos = self.wrap_qualifier_of_command((qualifier_of_command >> 1) & 0xFF, qualifier_of_command & 0x01)
-        qos = (qos << 2) & 0xFF
-        return struct.pack('<B', single_command_state + qos)
+        qoc = self.wrap_qualifier_of_command((qualifier_of_command >> 1) & 0xFF, qualifier_of_command & 0x01)
+        qoc = (qoc << 2) & 0xFF
+        return struct.pack('<B', single_command_state + qoc)
 
     def wrap_qualifier_of_command(self, qualifier, select_execute):
         """
@@ -538,6 +542,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x01\x00\x02\x00', wrapper.wrap_frame("s-frame", 0, 1))
         self.assertEqual(b'\x83\x00\x00\x00', wrapper.wrap_frame("u-frame", "testcon", 0))
         self.assertEqual("ERROR: No valid frame format was given.", wrapper.wrap_frame("Test", 0, 0))
+        self.assertEqual("ERROR: Frame format has to be a string.", wrapper.wrap_frame(1, 0, 0))
 
     def test_i_frame(self):
         wrapper = IEC104Wrapper()
@@ -602,8 +607,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(C_IC_NA_1, wrapper.wrap_asdu_type("C_IC_NA_1"))
         self.assertEqual(C_RD_NA_1, wrapper.wrap_asdu_type("C_RD_NA_1"))
         self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type("Test"))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type(1))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu_type(3.4))
+        self.assertEqual("ERROR: The ASDU type has to be a string.", wrapper.wrap_asdu_type(1))
 
     def test_wrap_cause_of_transmission(self):
         wrapper = IEC104Wrapper()
@@ -722,7 +726,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'Test\xF0', wrapper.wrap_information_object_m_bo_na_1(("Test", (1, 1, 1, 1))))
         self.assertEqual(b'Test\x00', wrapper.wrap_information_object_m_bo_na_1((b'Test', (0, 0, 0, 0))))
         self.assertEqual(b'Test\x01', wrapper.wrap_information_object_m_bo_na_1(("Tested", (0, 0, 0, 0))))
-        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tuple.", \
             wrapper.wrap_information_object_m_bo_na_1(("Test")))
         self.assertEqual("ERROR: M_BO_NA_1 expects a string or bytestring.", wrapper.wrap_information_object_m_bo_na_1((1, (0, 0, 0, 0))))
 
@@ -733,14 +737,14 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(b'\x9a\x99\x59\x40\x40', wrapper.wrap_information_object_m_me_nc_1((3.4, (0, 0, 1, 0))))
         self.assertEqual(b'\x9a\x99\x59\x40\x80', wrapper.wrap_information_object_m_me_nc_1((3.4, (0, 0, 0, 1))))
         self.assertEqual(b'\x9a\x99\x59\x40\xF0', wrapper.wrap_information_object_m_me_nc_1((3.4, (1, 1, 1, 1))))
-        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tuple.", \
             wrapper.wrap_information_object_m_me_nc_1(("Test")))
         self.assertEqual("ERROR: M_ME_NC_1 expects a float value.", wrapper.wrap_information_object_m_me_nc_1((1, (0, 0, 0, 0))))
 
     def test_wrap_information_object_c_sc_na_1(self):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\xFC', wrapper.wrap_information_object_c_sc_na_1((0, 63)))
-        self.assertEqual("ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tupel.", wrapper.wrap_information_object_c_sc_na_1("Test"))
+        self.assertEqual("ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tuple.", wrapper.wrap_information_object_c_sc_na_1("Test"))
 
     def test_wrap_information_object_c_ic_na_1(self):
         wrapper = IEC104Wrapper()
@@ -760,7 +764,7 @@ class TestWrapper(unittest.TestCase):
 
         # Exceptions
         self.assertEqual("ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements.", wrapper.wrap_information_object(-2, 129, ["Read"]))
-        self.assertEqual("ERROR: The ASDU type was not recognized or is not fit to be a sequence of elements.", wrapper.wrap_information_object(-2, 1, ["Read"]))
+        self.assertEqual("ERROR: The ASDU type was not recognized or has to be a sequence of elements.", wrapper.wrap_information_object(-2, 1, ["Read"]))
         self.assertEqual("ERROR: Variable structure qualifier expects more messages than given.", wrapper.wrap_information_object(C_RD_NA_1, 2, ["Read"]))
         self.assertEqual("ERROR: Variable structure qualifier expects fewer messages than given.", wrapper.wrap_information_object(C_RD_NA_1, 1, ["Read", "Read"]))
         self.assertEqual("ERROR: The type identification has to be an integer.", wrapper.wrap_information_object("Test", 1, ["Read"]))
@@ -769,15 +773,15 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual("ERROR: The message has to be a list containing less than 128 objects/elements.", wrapper.wrap_information_object(C_RD_NA_1, 1, "Read"))
 
         # Exception catching
-        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tuple.", \
             wrapper.wrap_information_object(M_BO_NA_1, 129, ["Test"]))
-        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tuple.", \
             wrapper.wrap_information_object(M_ME_NC_1, 129, ["Test"]))
-        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+        self.assertEqual("ERROR: M_BO_NA_1 expects a string and a tuple containing some bits of the IEC 104 quality descriptor in a tuple.", \
             wrapper.wrap_information_object(M_BO_NA_1, 1, ["Test"]))
-        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tupel.", \
+        self.assertEqual("ERROR: M_ME_NC_1 expects a float value and a tuple containing some bits of the IEC 104 quality descriptor in a tuple.", \
             wrapper.wrap_information_object(M_ME_NC_1, 1, ["Test"]))
-        self.assertEqual("ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tupel.", wrapper.wrap_information_object(C_SC_NA_1, 1, ["Test"]))
+        self.assertEqual("ERROR: C_SC_NA_1 expects a single command state and a qualifier of command in a tuple.", wrapper.wrap_information_object(C_SC_NA_1, 1, ["Test"]))
         self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", wrapper.wrap_information_object(C_IC_NA_1, 1, [256]))
 
         # Exception catching information object address
@@ -798,7 +802,7 @@ class TestWrapper(unittest.TestCase):
         wrapper = IEC104Wrapper()
         self.assertEqual(b'\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', \
             wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), 1, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))], 0))
-        self.assertEqual("ERROR: The ASDU type was not recognized.", wrapper.wrap_asdu(1, 0, ("periodic", 0, 0), 1, ["Test"], 0))
+        self.assertEqual("ERROR: The ASDU type has to be a string.", wrapper.wrap_asdu(1, 0, ("periodic", 0, 0), 1, ["Test"], 0))
         self.assertEqual("ERROR: No cause of transmission was found.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("Test", 0, 0), 1, ["Test"], 0))
         self.assertEqual("ERROR: Common address has to be an integer between 0 and 65535.", wrapper.wrap_asdu("M_BO_NA_1", 0, ("periodic", 0, 0), -1, ["Test"], 0))
         wrapper.information_object_address = -1
