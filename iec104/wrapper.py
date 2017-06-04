@@ -752,10 +752,15 @@ class TestWrapper(unittest.TestCase):
 
     def test_wrap_information_object(self):
         wrapper = IEC104Wrapper()
-        # "Normal" workflow
+
+        # No information object.
         self.assertEqual(b'', wrapper.wrap_information_object(C_RD_NA_1, 0, ["Read"]))
+
+        # Sequence = 1
         self.assertEqual(b'\x00\x00\x00Test\x00Test\x00', wrapper.wrap_information_object(M_BO_NA_1, 130, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))]))
         self.assertEqual(b'\x01\x00\x00\x9a\x99\x59\x40\x00\x9a\x99\x59\x40\x00', wrapper.wrap_information_object(M_ME_NC_1, 130, [(3.4, (0, 0, 0, 0)), (3.4, (0, 0, 0, 0))]))
+
+        # Sequence = 0
         self.assertEqual(b'\x02\x00\x00Test\x00\x03\x00\x00Test\x00', wrapper.wrap_information_object(M_BO_NA_1, 2, [("Test", (0, 0, 0, 0)), ("Test", (0, 0, 0, 0))]))
         self.assertEqual(b'\x04\x00\x00\x9a\x99\x59\x40\x00\x05\x00\x00\x9a\x99\x59\x40\x00', wrapper.wrap_information_object(M_ME_NC_1, 2, [(3.4, (0, 0, 0, 0)), (3.4, (0, 0, 0, 0))]))
         self.assertEqual(b'\x06\x00\x00\xFC', wrapper.wrap_information_object(C_SC_NA_1, 1, [(0, 63)]))
