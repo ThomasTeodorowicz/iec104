@@ -367,8 +367,47 @@ class IEC104Unwrapper():
         if (not type(qualifier) is int) or (qualifier < 0) or (qualifier > 255):
             return "ERROR: Qualifier of interrogation has to be an integer between 0 and 255."
         return qualifier
+                
+    def verify_apdu_content(self, apdu, frame_type, asdu_type, sequence, cause_of_transmission, pn, min_length = 0, max_length = 127):
+        """
+        Checks if the contents of an APDU are what of the expected format. Look at IEC 104 specification for details on the parameters.
+        :param apdu: APDU to check.
+        :param frame_type: Expected frame format.
+        :param asdu_type: Expected ASDU type.
+        :param sequence: Expected SQ bit.
+        :param cause_of_transmission: Expected cause of transmission.
+        :param common_address: Expected P/N bit.
+        :param min_length: Expected minimum length.
+        :param max_length: Expected maximum length.
+        :return: "Verified" if successful. ERROR if failed.
+        """
+        if apdu[0][0] != frame_type:
+            return "ERROR: Frame type does not match."
+        if apdu[1] != asdu_type:
+            return "ERROR: ASDU type does not match."
+        if apdu[2][0] != sequence:
+            return "ERROR: Sequence bit does not match."
+        if (apdu[2][1] < min_length) or (apdu[2][1] > max_length):
+            return "ERROR: Unexpected length."
+        if apdu[3][0] != cause_of_transmission:
+            return "ERROR: Cause of transmission does not match."
+        if apdu[3][1] != pn:
+            return "ERROR: P/N bit does not match."
+        return "Verified."
 
 # class TestUnwrapper(unittest.TestCase):
+
+#     def test_verify_apdu_content(self):
+#         unwrapper = IEC104Unwrapper()
+#         apdu = (('i-frame', 1, 1), 'M_BO_NA_1', (0, 2), ('periodic', 0, 0), 0, 1, [(0, "Test", (0, 0, 0, 0, 0)), (1, "Test", (0, 0, 0, 0, 0))])
+#         self.assertEqual("Verified.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 0, 3))
+#         self.assertEqual("ERROR: Frame type does not match.", unwrapper.verify_apdu_content(apdu, 'Test', 'M_BO_NA_1', 0, 'periodic', 0, 0, 3))
+#         self.assertEqual("ERROR: ASDU type does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'Test', 0, 'periodic', 0, 0, 3))
+#         self.assertEqual("ERROR: Sequence bit does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 1, 'periodic', 0, 0, 3))
+#         self.assertEqual("ERROR: Cause of transmission does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'Test', 0, 0, 3))
+#         self.assertEqual("ERROR: Unexpected length.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 3, 3))
+#         self.assertEqual("ERROR: Unexpected length.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 0, 1))
+#         self.assertEqual("ERROR: P/N bit does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 1, 0, 3))
 
 #     def test_unwrap_header(self):
 #         unwrapper = IEC104Unwrapper()

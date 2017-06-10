@@ -375,6 +375,8 @@ class IEC104Wrapper():
             return "ERROR: Information object address has to be an integer between 0 and 16777215."
         result = struct.pack('<3B', self.information_object_address & 0xFF, (self.information_object_address >> 8) & 0xFF, (self.information_object_address >> 16) & 0xFF)
         self.set_information_object_address(self.information_object_address + 1)
+        if self.get_information_object_address() > 16777215:
+            self.set_information_object_address(0)
         return result
 
     def wrap_information_object_m_bo_na_1(self, message):
