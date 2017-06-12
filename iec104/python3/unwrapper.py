@@ -223,8 +223,7 @@ class IEC104Unwrapper():
                 result.append(ioa)
                 offset = offset + 3
                 while i < asdu_length:
-                    bsi = (struct.unpack_from('<s', asdu, offset)[0] + struct.unpack_from('<s', asdu, offset + 1)[0] + struct.unpack_from('<s', asdu, offset + 2)[0] \
-                    + struct.unpack_from('<s', asdu, offset + 3)[0]).decode()
+                    bsi = struct.unpack_from('<4s', asdu, offset)[0].decode()
                     qds = self.unwrap_quality_descriptor(struct.unpack_from('<B', asdu, offset + 4)[0])
                     if type(qds) is str:
                         return qds
@@ -257,8 +256,7 @@ class IEC104Unwrapper():
                     ioa = self.unwrap_information_object_address(struct.unpack_from('<3B', asdu, offset))
                     if type(ioa) is str:
                         return ioa
-                    bsi = (struct.unpack_from('<s', asdu, offset + 3)[0] + struct.unpack_from('<s', asdu, offset + 4)[0] + struct.unpack_from('<s', asdu, offset + 5)[0] \
-                    + struct.unpack_from('<s', asdu, offset + 6)[0]).decode()
+                    bsi = struct.unpack_from('<4s', asdu, offset + 3)[0].decode()
                     qds = self.unwrap_quality_descriptor(struct.unpack_from('<B', asdu, offset + 7)[0])
                     if type(qds) is str:
                         return qds
@@ -377,8 +375,8 @@ class IEC104Unwrapper():
         :param sequence: Expected SQ bit.
         :param cause_of_transmission: Expected cause of transmission.
         :param common_address: Expected P/N bit.
-        :param min_length: Expected minimum amount of information objects/elements.
-        :param max_length: Expected maximum amount of information objects/elements.
+        :param min_io: Expected minimum amount of information objects/elements.
+        :param max_io: Expected maximum amount of information objects/elements.
         :return: "Verified" if successful. ERROR if failed.
         """
         if apdu[0][0] != frame_type:
@@ -387,7 +385,7 @@ class IEC104Unwrapper():
             return "ERROR: ASDU type does not match."
         if apdu[2][0] != sequence:
             return "ERROR: Sequence bit does not match."
-        if (apdu[2][1] < min_length) or (apdu[2][1] > max_length):
+        if (apdu[2][1] < min_io) or (apdu[2][1] > max_io):
             return "ERROR: Unexpected length."
         if apdu[3][0] != cause_of_transmission:
             return "ERROR: Cause of transmission does not match."
@@ -395,187 +393,187 @@ class IEC104Unwrapper():
             return "ERROR: P/N bit does not match."
         return "Verified."
 
-# class TestUnwrapper(unittest.TestCase):
+class TestUnwrapper(unittest.TestCase):
 
-#     def test_verify_apdu_content(self):
-#         unwrapper = IEC104Unwrapper()
-#         apdu = (('i-frame', 1, 1), 'M_BO_NA_1', (0, 2), ('periodic', 0, 0), 0, 1, [(0, "Test", (0, 0, 0, 0, 0)), (1, "Test", (0, 0, 0, 0, 0))])
-#         self.assertEqual("Verified.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 0, 3))
-#         self.assertEqual("ERROR: Frame type does not match.", unwrapper.verify_apdu_content(apdu, 'Test', 'M_BO_NA_1', 0, 'periodic', 0, 0, 3))
-#         self.assertEqual("ERROR: ASDU type does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'Test', 0, 'periodic', 0, 0, 3))
-#         self.assertEqual("ERROR: Sequence bit does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 1, 'periodic', 0, 0, 3))
-#         self.assertEqual("ERROR: Cause of transmission does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'Test', 0, 0, 3))
-#         self.assertEqual("ERROR: Unexpected length.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 3, 3))
-#         self.assertEqual("ERROR: Unexpected length.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 0, 1))
-#         self.assertEqual("ERROR: P/N bit does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 1, 0, 3))
+    def test_verify_apdu_content(self):
+        unwrapper = IEC104Unwrapper()
+        apdu = (('i-frame', 1, 1), 'M_BO_NA_1', (0, 2), ('periodic', 0, 0), 0, 1, [(0, "Test", (0, 0, 0, 0, 0)), (1, "Test", (0, 0, 0, 0, 0))])
+        self.assertEqual("Verified.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 0, 3))
+        self.assertEqual("ERROR: Frame type does not match.", unwrapper.verify_apdu_content(apdu, 'Test', 'M_BO_NA_1', 0, 'periodic', 0, 0, 3))
+        self.assertEqual("ERROR: ASDU type does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'Test', 0, 'periodic', 0, 0, 3))
+        self.assertEqual("ERROR: Sequence bit does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 1, 'periodic', 0, 0, 3))
+        self.assertEqual("ERROR: Cause of transmission does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'Test', 0, 0, 3))
+        self.assertEqual("ERROR: Unexpected length.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 3, 3))
+        self.assertEqual("ERROR: Unexpected length.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 0, 0, 1))
+        self.assertEqual("ERROR: P/N bit does not match.", unwrapper.verify_apdu_content(apdu, 'i-frame', 'M_BO_NA_1', 0, 'periodic', 1, 0, 3))
 
-#     def test_unwrap_header(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual(26, unwrapper.unwrap_header(b'\x68\x1A'))
-#         self.assertEqual("ERROR: The APDU header has to be a bytestring.", unwrapper.unwrap_header("Test"))
-#         self.assertEqual("ERROR: The APDU header has to be exactly 2 bytes long.", unwrapper.unwrap_header(b'\x68\x1A\x11'))
-#         self.assertEqual("ERROR: The APDU has to start with a 68H.", unwrapper.unwrap_header(b'\x60\x1A'))
+    def test_unwrap_header(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual(26, unwrapper.unwrap_header(b'\x68\x1A'))
+        self.assertEqual("ERROR: The APDU header has to be a bytestring.", unwrapper.unwrap_header("Test"))
+        self.assertEqual("ERROR: The APDU header has to be exactly 2 bytes long.", unwrapper.unwrap_header(b'\x68\x1A\x11'))
+        self.assertEqual("ERROR: The APDU has to start with a 68H.", unwrapper.unwrap_header(b'\x60\x1A'))
 
-#     def test_unwrap_frame(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual(("i-frame", 32767, 32767), unwrapper.unwrap_frame((254, 255, 254, 255)))
-#         self.assertEqual(("s-frame", 1, 32767), unwrapper.unwrap_frame((1, 0, 254, 255)))
-#         self.assertEqual(("u-frame", "TESTFR_CON", 0), unwrapper.unwrap_frame((TESTFR_CON, 0, 0, 0)))
-#         self.assertEqual(("u-frame", "TESTFR_ACT", 0), unwrapper.unwrap_frame((TESTFR_ACT, 0, 0, 0)))
-#         self.assertEqual(("u-frame", "STOPDT_CON", 0), unwrapper.unwrap_frame((STOPDT_CON, 0, 0, 0)))
-#         self.assertEqual(("u-frame", "STOPDT_ACT", 0), unwrapper.unwrap_frame((STOPDT_ACT, 0, 0, 0)))
-#         self.assertEqual(("u-frame", "STARTDT_CON", 0), unwrapper.unwrap_frame((STARTDT_CON, 0, 0, 0)))
-#         self.assertEqual(("u-frame", "STARTDT_ACT", 0), unwrapper.unwrap_frame((STARTDT_ACT, 0, 0, 0)))
-#         self.assertEqual(("u-frame", "NO_FUNC", 0), unwrapper.unwrap_frame((NO_FUNC, 0, 0, 0)))
-#         self.assertEqual("ERROR: The frame has to be a tuple containing 4 integers.", unwrapper.unwrap_frame((0, 0, 0)))
-#         self.assertEqual("ERROR: The frame has to be a tuple containing 4 integers.", unwrapper.unwrap_frame("Test"))
-#         self.assertEqual("ERROR: Function type could not be determined.", unwrapper.unwrap_frame((15, 0, 0, 0)))
-#         self.assertEqual("ERROR: Frame type could not be determined.", unwrapper.unwrap_frame((21, 0, 0, 0)))
+    def test_unwrap_frame(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual(("i-frame", 32767, 32767), unwrapper.unwrap_frame((254, 255, 254, 255)))
+        self.assertEqual(("s-frame", 1, 32767), unwrapper.unwrap_frame((1, 0, 254, 255)))
+        self.assertEqual(("u-frame", "TESTFR_CON", 0), unwrapper.unwrap_frame((TESTFR_CON, 0, 0, 0)))
+        self.assertEqual(("u-frame", "TESTFR_ACT", 0), unwrapper.unwrap_frame((TESTFR_ACT, 0, 0, 0)))
+        self.assertEqual(("u-frame", "STOPDT_CON", 0), unwrapper.unwrap_frame((STOPDT_CON, 0, 0, 0)))
+        self.assertEqual(("u-frame", "STOPDT_ACT", 0), unwrapper.unwrap_frame((STOPDT_ACT, 0, 0, 0)))
+        self.assertEqual(("u-frame", "STARTDT_CON", 0), unwrapper.unwrap_frame((STARTDT_CON, 0, 0, 0)))
+        self.assertEqual(("u-frame", "STARTDT_ACT", 0), unwrapper.unwrap_frame((STARTDT_ACT, 0, 0, 0)))
+        self.assertEqual(("u-frame", "NO_FUNC", 0), unwrapper.unwrap_frame((NO_FUNC, 0, 0, 0)))
+        self.assertEqual("ERROR: The frame has to be a tuple containing 4 integers.", unwrapper.unwrap_frame((0, 0, 0)))
+        self.assertEqual("ERROR: The frame has to be a tuple containing 4 integers.", unwrapper.unwrap_frame("Test"))
+        self.assertEqual("ERROR: Function type could not be determined.", unwrapper.unwrap_frame((15, 0, 0, 0)))
+        self.assertEqual("ERROR: Frame type could not be determined.", unwrapper.unwrap_frame((21, 0, 0, 0)))
 
-#     def test_unwrap_type_identification(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual("M_BO_NA_1", unwrapper.unwrap_type_identification(M_BO_NA_1))
-#         self.assertEqual("M_ME_NC_1", unwrapper.unwrap_type_identification(M_ME_NC_1))
-#         self.assertEqual("C_SC_NA_1", unwrapper.unwrap_type_identification(C_SC_NA_1))
-#         self.assertEqual("C_IC_NA_1", unwrapper.unwrap_type_identification(C_IC_NA_1))
-#         self.assertEqual("C_RD_NA_1", unwrapper.unwrap_type_identification(C_RD_NA_1))
-#         self.assertEqual("ERROR: The type identification has to be an integer.", unwrapper.unwrap_type_identification("Test"))
-#         self.assertEqual("ERROR: The ASDU type was not recognized.", unwrapper.unwrap_type_identification(-1))
+    def test_unwrap_type_identification(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual("M_BO_NA_1", unwrapper.unwrap_type_identification(M_BO_NA_1))
+        self.assertEqual("M_ME_NC_1", unwrapper.unwrap_type_identification(M_ME_NC_1))
+        self.assertEqual("C_SC_NA_1", unwrapper.unwrap_type_identification(C_SC_NA_1))
+        self.assertEqual("C_IC_NA_1", unwrapper.unwrap_type_identification(C_IC_NA_1))
+        self.assertEqual("C_RD_NA_1", unwrapper.unwrap_type_identification(C_RD_NA_1))
+        self.assertEqual("ERROR: The type identification has to be an integer.", unwrapper.unwrap_type_identification("Test"))
+        self.assertEqual("ERROR: The ASDU type was not recognized.", unwrapper.unwrap_type_identification(-1))
 
-#     def test_unwrap_variable_structure_qualifier(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual((0, 0), unwrapper.unwrap_variable_structure_qualifier(0))
-#         self.assertEqual((1, 0), unwrapper.unwrap_variable_structure_qualifier(128))
-#         self.assertEqual((0, 127), unwrapper.unwrap_variable_structure_qualifier(127))
-#         self.assertEqual("ERROR: The variable structure qualifier has to be an integer.", unwrapper.unwrap_variable_structure_qualifier("Test"))
+    def test_unwrap_variable_structure_qualifier(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual((0, 0), unwrapper.unwrap_variable_structure_qualifier(0))
+        self.assertEqual((1, 0), unwrapper.unwrap_variable_structure_qualifier(128))
+        self.assertEqual((0, 127), unwrapper.unwrap_variable_structure_qualifier(127))
+        self.assertEqual("ERROR: The variable structure qualifier has to be an integer.", unwrapper.unwrap_variable_structure_qualifier("Test"))
 
-#     def test_unwrap_cause_of_transmission(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual(("periodic", 0, 0), unwrapper.unwrap_cause_of_transmission(1))
-#         self.assertEqual(("spontaneous", 0, 0), unwrapper.unwrap_cause_of_transmission(3))
-#         self.assertEqual(("request or requested", 0, 0), unwrapper.unwrap_cause_of_transmission(5))
-#         self.assertEqual(("activation", 0, 0), unwrapper.unwrap_cause_of_transmission(6))
-#         self.assertEqual(("activation confirmation", 0, 0), unwrapper.unwrap_cause_of_transmission(7))
-#         self.assertEqual(("return information by remote command", 0, 0), unwrapper.unwrap_cause_of_transmission(11))
-#         self.assertEqual(("periodic", 1, 0), unwrapper.unwrap_cause_of_transmission(65))
-#         self.assertEqual(("periodic", 0, 1), unwrapper.unwrap_cause_of_transmission(129))
-#         self.assertEqual("ERROR: The cause of transmission, P/N bit and Testit have to be wrapped into an integer.", unwrapper.unwrap_cause_of_transmission("Test"))
-#         self.assertEqual("ERROR: No cause of transmission was found.", unwrapper.unwrap_cause_of_transmission(-1))
+    def test_unwrap_cause_of_transmission(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual(("periodic", 0, 0), unwrapper.unwrap_cause_of_transmission(1))
+        self.assertEqual(("spontaneous", 0, 0), unwrapper.unwrap_cause_of_transmission(3))
+        self.assertEqual(("request or requested", 0, 0), unwrapper.unwrap_cause_of_transmission(5))
+        self.assertEqual(("activation", 0, 0), unwrapper.unwrap_cause_of_transmission(6))
+        self.assertEqual(("activation confirmation", 0, 0), unwrapper.unwrap_cause_of_transmission(7))
+        self.assertEqual(("return information by remote command", 0, 0), unwrapper.unwrap_cause_of_transmission(11))
+        self.assertEqual(("periodic", 1, 0), unwrapper.unwrap_cause_of_transmission(65))
+        self.assertEqual(("periodic", 0, 1), unwrapper.unwrap_cause_of_transmission(129))
+        self.assertEqual("ERROR: The cause of transmission, P/N bit and Testit have to be wrapped into an integer.", unwrapper.unwrap_cause_of_transmission("Test"))
+        self.assertEqual("ERROR: No cause of transmission was found.", unwrapper.unwrap_cause_of_transmission(-1))
 
-#     def test_unwrap_quality_descriptor(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual((0, 0, 0, 0, 0), unwrapper.unwrap_quality_descriptor(0))
-#         self.assertEqual((1, 0, 0, 0, 0), unwrapper.unwrap_quality_descriptor(1))
-#         self.assertEqual((0, 1, 0, 0, 0), unwrapper.unwrap_quality_descriptor(16))
-#         self.assertEqual((0, 0, 1, 0, 0), unwrapper.unwrap_quality_descriptor(32))
-#         self.assertEqual((0, 0, 0, 1, 0), unwrapper.unwrap_quality_descriptor(64))
-#         self.assertEqual((0, 0, 0, 0, 1), unwrapper.unwrap_quality_descriptor(128))
-#         self.assertEqual((1, 1, 1, 1, 1), unwrapper.unwrap_quality_descriptor(255))
-#         self.assertEqual("ERROR: The quality descriptor has to be an integer.", unwrapper.unwrap_quality_descriptor("Test"))
+    def test_unwrap_quality_descriptor(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual((0, 0, 0, 0, 0), unwrapper.unwrap_quality_descriptor(0))
+        self.assertEqual((1, 0, 0, 0, 0), unwrapper.unwrap_quality_descriptor(1))
+        self.assertEqual((0, 1, 0, 0, 0), unwrapper.unwrap_quality_descriptor(16))
+        self.assertEqual((0, 0, 1, 0, 0), unwrapper.unwrap_quality_descriptor(32))
+        self.assertEqual((0, 0, 0, 1, 0), unwrapper.unwrap_quality_descriptor(64))
+        self.assertEqual((0, 0, 0, 0, 1), unwrapper.unwrap_quality_descriptor(128))
+        self.assertEqual((1, 1, 1, 1, 1), unwrapper.unwrap_quality_descriptor(255))
+        self.assertEqual("ERROR: The quality descriptor has to be an integer.", unwrapper.unwrap_quality_descriptor("Test"))
 
-#     def test_unwrap_qualifier_of_command(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual((0, 0), unwrapper.unwrap_qualifier_of_command(0))
-#         self.assertEqual((0, 1), unwrapper.unwrap_qualifier_of_command(32))
-#         self.assertEqual((31, 1), unwrapper.unwrap_qualifier_of_command(63))
-#         self.assertEqual("ERROR: Qualifier of command has to be an integer.", unwrapper.unwrap_qualifier_of_command("Test"))
+    def test_unwrap_qualifier_of_command(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual((0, 0), unwrapper.unwrap_qualifier_of_command(0))
+        self.assertEqual((0, 1), unwrapper.unwrap_qualifier_of_command(32))
+        self.assertEqual((31, 1), unwrapper.unwrap_qualifier_of_command(63))
+        self.assertEqual("ERROR: Qualifier of command has to be an integer.", unwrapper.unwrap_qualifier_of_command("Test"))
 
-#     def test_unwrap_single_command(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual((0, (0, 0)), unwrapper.unwrap_single_command(0))
-#         self.assertEqual((1, (0, 0)), unwrapper.unwrap_single_command(1))
-#         self.assertEqual((0, (0, 1)), unwrapper.unwrap_single_command(128))
-#         self.assertEqual((0, (31, 1)), unwrapper.unwrap_single_command(252))
-#         self.assertEqual("ERROR: A single command has to be an integer.", unwrapper.unwrap_single_command("Test"))
+    def test_unwrap_single_command(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual((0, (0, 0)), unwrapper.unwrap_single_command(0))
+        self.assertEqual((1, (0, 0)), unwrapper.unwrap_single_command(1))
+        self.assertEqual((0, (0, 1)), unwrapper.unwrap_single_command(128))
+        self.assertEqual((0, (31, 1)), unwrapper.unwrap_single_command(252))
+        self.assertEqual("ERROR: A single command has to be an integer.", unwrapper.unwrap_single_command("Test"))
 
-#     def test_unwrap_information_object_address(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual(65537, unwrapper.unwrap_information_object_address((1, 0, 1)))
-#         self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address("Test"))
-#         self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address(("Test", 0, 0)))
-#         self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address((0, "Test", 0)))
-#         self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address((0, 0, "Test")))
-#         self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address((0, 0, 0, 0)))
+    def test_unwrap_information_object_address(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual(65537, unwrapper.unwrap_information_object_address((1, 0, 1)))
+        self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address("Test"))
+        self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address(("Test", 0, 0)))
+        self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address((0, "Test", 0)))
+        self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address((0, 0, "Test")))
+        self.assertEqual("ERROR: Information object address has to be a tuple containing 3 integers.", unwrapper.unwrap_information_object_address((0, 0, 0, 0)))
 
-#     def test_unwrap_qualifier_of_interrogation(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual(255, unwrapper.unwrap_qualifier_of_interrogation(255))
-#         self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", unwrapper.unwrap_qualifier_of_interrogation("Test"))
+    def test_unwrap_qualifier_of_interrogation(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual(255, unwrapper.unwrap_qualifier_of_interrogation(255))
+        self.assertEqual("ERROR: Qualifier of interrogation has to be an integer between 0 and 255.", unwrapper.unwrap_qualifier_of_interrogation("Test"))
 
-#     def test_unwrap_information_objects(self):
-#         unwrapper = IEC104Unwrapper()
+    def test_unwrap_information_objects(self):
+        unwrapper = IEC104Unwrapper()
 
-#         # Sequence = 1
-#         self.assertEqual([0, ("Test", (0, 0, 0, 0, 0)), ("Test", (1, 0, 0, 0, 0))], \
-#             unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\x00\x00\x00Test\x00Test\x01', 13, 0))
-#         self.assertEqual([16777215, ("Test", (0, 0, 0, 0, 0)), ("Test", (1, 0, 0, 0, 0))], \
-#             unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\xFF\xFF\xFFTest\x00Test\x01', 13, 0))
-#         # Should be 3.4 but flotaing point errors.. 
-#         self.assertEqual([16777215, (3.4000000953674316, (0, 0, 0, 0, 0)), (3.4000000953674316, (1, 0, 0, 0, 0))], \
-#             unwrapper.unwrap_information_objects(M_ME_NC_1, 1, 2, b'\xFF\xFF\xFF\x9a\x99\x59\x40\x00\x9a\x99\x59\x40\x01', 13, 0))
+        # Sequence = 1
+        self.assertEqual([0, ("Test", (0, 0, 0, 0, 0)), ("Test", (1, 0, 0, 0, 0))], \
+            unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\x00\x00\x00Test\x00Test\x01', 13, 0))
+        self.assertEqual([16777215, ("Test", (0, 0, 0, 0, 0)), ("Test", (1, 0, 0, 0, 0))], \
+            unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\xFF\xFF\xFFTest\x00Test\x01', 13, 0))
+        # Should be 3.4 but flotaing point errors.. 
+        self.assertEqual([16777215, (3.4000000953674316, (0, 0, 0, 0, 0)), (3.4000000953674316, (1, 0, 0, 0, 0))], \
+            unwrapper.unwrap_information_objects(M_ME_NC_1, 1, 2, b'\xFF\xFF\xFF\x9a\x99\x59\x40\x00\x9a\x99\x59\x40\x01', 13, 0))
 
-#         # Sequence = 0
-#         self.assertEqual([(65536, "Test", (0, 0, 0, 0, 0)), (65537, "Test", (0, 0, 0, 0, 0))], \
-#             unwrapper.unwrap_information_objects(M_BO_NA_1, 0, 2, b'\x00\x00\x01Test\x00\x01\x00\x01Test\x00', 16, 0))
-#         # Should be 3.4 but flotaing point errors.. 
-#         self.assertEqual([(65536, 3.4000000953674316, (0, 0, 0, 0, 0)), (65537, 3.4000000953674316, (0, 0, 0, 0, 0))], \
-#             unwrapper.unwrap_information_objects(M_ME_NC_1, 0, 2, b'\x00\x00\x01\x9a\x99\x59\x40\x00\x01\x00\x01\x9a\x99\x59\x40\x00', 16, 0))
-#         self.assertEqual([(65537, (0, (31, 1)))], unwrapper.unwrap_information_objects(C_SC_NA_1, 0, 1, b'\x01\x00\x01\xFC', 4, 0))
-#         self.assertEqual([(65537, 255)], unwrapper.unwrap_information_objects(C_IC_NA_1, 0, 1, b'\x01\x00\x01\xFF', 4, 0))
-#         self.assertEqual([(65537)], unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, b'\x01\x00\x01', 3, 0))
+        # Sequence = 0
+        self.assertEqual([(65536, "Test", (0, 0, 0, 0, 0)), (65537, "Test", (0, 0, 0, 0, 0))], \
+            unwrapper.unwrap_information_objects(M_BO_NA_1, 0, 2, b'\x00\x00\x01Test\x00\x01\x00\x01Test\x00', 16, 0))
+        # Should be 3.4 but flotaing point errors.. 
+        self.assertEqual([(65536, 3.4000000953674316, (0, 0, 0, 0, 0)), (65537, 3.4000000953674316, (0, 0, 0, 0, 0))], \
+            unwrapper.unwrap_information_objects(M_ME_NC_1, 0, 2, b'\x00\x00\x01\x9a\x99\x59\x40\x00\x01\x00\x01\x9a\x99\x59\x40\x00', 16, 0))
+        self.assertEqual([(65537, (0, (31, 1)))], unwrapper.unwrap_information_objects(C_SC_NA_1, 0, 1, b'\x01\x00\x01\xFC', 4, 0))
+        self.assertEqual([(65537, 255)], unwrapper.unwrap_information_objects(C_IC_NA_1, 0, 1, b'\x01\x00\x01\xFF', 4, 0))
+        self.assertEqual([(65537)], unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, b'\x01\x00\x01', 3, 0))
         
-#         # Exceptions
-#         self.assertEqual("ERROR: The type identification has to be an integer.", unwrapper.unwrap_information_objects("Test", 0, 1, b'\x01\x00\x01', 3, 0))
-#         self.assertEqual("ERROR: Sequence bit has to be 0 or 1.", unwrapper.unwrap_information_objects(C_RD_NA_1, 10, 1, b'\x01\x00\x01', 3, 0))
-#         self.assertEqual("ERROR: The ASDU length has to be an integer bigger than 0.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, "Test", b'\x01\x00\x01', 3, 0))
-#         self.assertEqual("ERROR: The ASDU length has to be an integer bigger than 0.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, -1, b'\x01\x00\x01', 3, 0))
-#         self.assertEqual("ERROR: The ASDU has to be a bytestring.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, "Test", 3, 0))
-#         self.assertEqual("ERROR: The ASDU byte length has to be an integer.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, b'\x01\x00\x01', "Test", 0))
-#         self.assertEqual("ERROR: C_SC_NA_1 expects only one information object.", unwrapper.unwrap_information_objects(C_SC_NA_1, 0, 2, b'\x01\x00\x01\xFC', 4, 0))
-#         self.assertEqual("ERROR: C_IC_NA_1 expects only one information object.", unwrapper.unwrap_information_objects(C_IC_NA_1, 0, 2, b'\x01\x00\x01\xFF', 4, 0))
-#         self.assertEqual("ERROR: C_RD_NA_1 expects only one information object.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 2, b'\x01\x00\x01', 3, 0))
-#         self.assertEqual("ERROR: The ASDU type was not recognized or does not work as a sequence.", unwrapper.unwrap_information_objects(-1, 1, 1, b'\x01\x00\x01', 3, 0))
-#         self.assertEqual("ERROR: The ASDU type was not recognized or does only work as a sequence.", unwrapper.unwrap_information_objects(-1, 0, 1, b'\x01\x00\x01', 3, 0))
+        # Exceptions
+        self.assertEqual("ERROR: The type identification has to be an integer.", unwrapper.unwrap_information_objects("Test", 0, 1, b'\x01\x00\x01', 3, 0))
+        self.assertEqual("ERROR: Sequence bit has to be 0 or 1.", unwrapper.unwrap_information_objects(C_RD_NA_1, 10, 1, b'\x01\x00\x01', 3, 0))
+        self.assertEqual("ERROR: The ASDU length has to be an integer bigger than 0.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, "Test", b'\x01\x00\x01', 3, 0))
+        self.assertEqual("ERROR: The ASDU length has to be an integer bigger than 0.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, -1, b'\x01\x00\x01', 3, 0))
+        self.assertEqual("ERROR: The ASDU has to be a bytestring.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, "Test", 3, 0))
+        self.assertEqual("ERROR: The ASDU byte length has to be an integer.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, b'\x01\x00\x01', "Test", 0))
+        self.assertEqual("ERROR: C_SC_NA_1 expects only one information object.", unwrapper.unwrap_information_objects(C_SC_NA_1, 0, 2, b'\x01\x00\x01\xFC', 4, 0))
+        self.assertEqual("ERROR: C_IC_NA_1 expects only one information object.", unwrapper.unwrap_information_objects(C_IC_NA_1, 0, 2, b'\x01\x00\x01\xFF', 4, 0))
+        self.assertEqual("ERROR: C_RD_NA_1 expects only one information object.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 2, b'\x01\x00\x01', 3, 0))
+        self.assertEqual("ERROR: The ASDU type was not recognized or does not work as a sequence.", unwrapper.unwrap_information_objects(-1, 1, 1, b'\x01\x00\x01', 3, 0))
+        self.assertEqual("ERROR: The ASDU type was not recognized or does only work as a sequence.", unwrapper.unwrap_information_objects(-1, 0, 1, b'\x01\x00\x01', 3, 0))
         
-#         # Exceptions real length
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
-#             unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\x00\x00\x00Test\x00Test\x01', 1, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
-#             unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\xFF\xFF\xFFTest\x00Test\x01', 1, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
-#             unwrapper.unwrap_information_objects(M_ME_NC_1, 1, 2, b'\xFF\xFF\xFF\x9a\x99\x59\x40\x00\x9a\x99\x59\x40\x01', 1, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
-#             unwrapper.unwrap_information_objects(M_BO_NA_1, 0, 2, b'\x00\x00\x01Test\x00\x01\x00\x01Test\x00', 1, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
-#             unwrapper.unwrap_information_objects(M_ME_NC_1, 0, 2, b'\x00\x00\x01\x9a\x99\x59\x40\x00\x01\x00\x01\x9a\x99\x59\x40\x00', 1, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", unwrapper.unwrap_information_objects(C_SC_NA_1, 0, 1, b'\x01\x00\x01\xFC', 40, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", unwrapper.unwrap_information_objects(C_IC_NA_1, 0, 1, b'\x01\x00\x01\xFF', 40, 0))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, b'\x01\x00\x01', 30, 0))
+        # Exceptions real length
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
+            unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\x00\x00\x00Test\x00Test\x01', 1, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
+            unwrapper.unwrap_information_objects(M_BO_NA_1, 1, 2, b'\xFF\xFF\xFFTest\x00Test\x01', 1, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
+            unwrapper.unwrap_information_objects(M_ME_NC_1, 1, 2, b'\xFF\xFF\xFF\x9a\x99\x59\x40\x00\x9a\x99\x59\x40\x01', 1, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
+            unwrapper.unwrap_information_objects(M_BO_NA_1, 0, 2, b'\x00\x00\x01Test\x00\x01\x00\x01Test\x00', 1, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
+            unwrapper.unwrap_information_objects(M_ME_NC_1, 0, 2, b'\x00\x00\x01\x9a\x99\x59\x40\x00\x01\x00\x01\x9a\x99\x59\x40\x00', 1, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", unwrapper.unwrap_information_objects(C_SC_NA_1, 0, 1, b'\x01\x00\x01\xFC', 40, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", unwrapper.unwrap_information_objects(C_IC_NA_1, 0, 1, b'\x01\x00\x01\xFF', 40, 0))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", unwrapper.unwrap_information_objects(C_RD_NA_1, 0, 1, b'\x01\x00\x01', 30, 0))
 
-#     def test_unwrap_apdu(self):
-#         unwrapper = IEC104Unwrapper()
-#         self.assertEqual((('i-frame', 1, 1), 'M_BO_NA_1', (0, 2), ('periodic', 0, 0), 0, 1, [(0, "Test", (0, 0, 0, 0, 0)), (1, "Test", (0, 0, 0, 0, 0))]), \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
-#         self.assertEqual((('i-frame', 1, 1), 'M_BO_NA_1', (0, 0), ('periodic', 0, 0), 0, 1, "No information objects/elements."), \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x00\x01\x00\x01\x00', 10))
-#         self.assertEqual("ERROR: The length has to be an integer bigger than " + str(APDU_MIN_LEN - 1) + "(excluding header).", \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 9))
-#         self.assertEqual("ERROR: The APDU has to be a bytestring.", \
-#             unwrapper.unwrap_apdu("Test", 10))
-#         self.assertEqual("ERROR: Function type could not be determined.", \
-#             unwrapper.unwrap_apdu(b'\x0F\x00\x00\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
-#         # This test only needs to be done if one of the integers between 0 and 255 is not assigned to an ASDU type.
-#         self.assertEqual("ERROR: The ASDU type was not recognized.", \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\xFF\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
-#         # This test only needs to be done if one of the integers between 0 and 63 is not assigned to a cause of transmission.
-#         self.assertEqual("ERROR: No cause of transmission was found.", \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x3F\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
-#         self.assertEqual("ERROR: No information object was expected but the APDU still contains information.", \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x00\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
-#         self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
-#             unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00', 10))
+    def test_unwrap_apdu(self):
+        unwrapper = IEC104Unwrapper()
+        self.assertEqual((('i-frame', 1, 1), 'M_BO_NA_1', (0, 2), ('periodic', 0, 0), 0, 1, [(0, "Test", (0, 0, 0, 0, 0)), (1, "Test", (0, 0, 0, 0, 0))]), \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
+        self.assertEqual((('i-frame', 1, 1), 'M_BO_NA_1', (0, 0), ('periodic', 0, 0), 0, 1, "No information objects/elements."), \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x00\x01\x00\x01\x00', 10))
+        self.assertEqual("ERROR: The length has to be an integer bigger than " + str(APDU_MIN_LEN - 1) + "(excluding header).", \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 9))
+        self.assertEqual("ERROR: The APDU has to be a bytestring.", \
+            unwrapper.unwrap_apdu("Test", 10))
+        self.assertEqual("ERROR: Function type could not be determined.", \
+            unwrapper.unwrap_apdu(b'\x0F\x00\x00\x00\x07\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
+        # This test only needs to be done if one of the integers between 0 and 255 is not assigned to an ASDU type.
+        self.assertEqual("ERROR: The ASDU type was not recognized.", \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\xFF\x02\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
+        # This test only needs to be done if one of the integers between 0 and 63 is not assigned to a cause of transmission.
+        self.assertEqual("ERROR: No cause of transmission was found.", \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x3F\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
+        self.assertEqual("ERROR: No information object was expected but the APDU still contains information.", \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x00\x01\x00\x01\x00\x00\x00\x00Test\x00\x01\x00\x00Test\x00', 26))
+        self.assertEqual("ERROR: The expected ASDU length does not equal the real length.", \
+            unwrapper.unwrap_apdu(b'\x02\x00\x02\x00\x07\x02\x01\x00\x01\x00', 10))
 
 
 
-# if __name__ == "__main__":
-#     unittest.main()
+if __name__ == "__main__":
+    unittest.main()
