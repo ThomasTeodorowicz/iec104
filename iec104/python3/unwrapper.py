@@ -368,7 +368,7 @@ class IEC104Unwrapper():
             return "ERROR: Qualifier of interrogation has to be an integer between 0 and 255."
         return qualifier
                 
-    def verify_apdu_content(self, apdu, frame_type, asdu_type, sequence, cause_of_transmission, pn, min_length = 0, max_length = 127):
+    def verify_apdu_content(self, apdu, frame_type, asdu_type, sequence, cause_of_transmission, pn, min_length = 10, max_length = 127):
         """
         Checks if the contents of an APDU are what of the expected format. Look at IEC 104 specification for details on the parameters.
         :param apdu: APDU to check.
