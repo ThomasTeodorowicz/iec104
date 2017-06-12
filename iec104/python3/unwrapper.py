@@ -368,7 +368,7 @@ class IEC104Unwrapper():
             return "ERROR: Qualifier of interrogation has to be an integer between 0 and 255."
         return qualifier
                 
-    def verify_apdu_content(self, apdu, frame_type, asdu_type, sequence, cause_of_transmission, pn, min_length = 10, max_length = 127):
+    def verify_apdu_content(self, apdu, frame_type, asdu_type, sequence, cause_of_transmission, pn, min_io = 0, max_io = 127):
         """
         Checks if the contents of an APDU are what of the expected format. Look at IEC 104 specification for details on the parameters.
         :param apdu: APDU to check.
@@ -377,8 +377,8 @@ class IEC104Unwrapper():
         :param sequence: Expected SQ bit.
         :param cause_of_transmission: Expected cause of transmission.
         :param common_address: Expected P/N bit.
-        :param min_length: Expected minimum length.
-        :param max_length: Expected maximum length.
+        :param min_length: Expected minimum amount of information objects/elements.
+        :param max_length: Expected maximum amount of information objects/elements.
         :return: "Verified" if successful. ERROR if failed.
         """
         if apdu[0][0] != frame_type:
